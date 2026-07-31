@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'push するタグ名（例: dev, v0.1.0-alpha）'
-        required: true
-        default: dev
+        description: 'Image tag to push (e.g. edge, 0.1.0)'
+        required: false
+        default: edge
 
 permissions:
   contents: read
@@ -33,8 +33,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
           tags: |
             type=raw,value=${{ inputs.tag }}
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
       - uses: docker/build-push-action@v6
