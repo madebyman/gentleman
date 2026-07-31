@@ -1,0 +1,27 @@
+services:
+  gentleman:
+    container_name: gentleman
+    build: .
+    image: gentleman
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    command: ["--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ./agents:/app/agents
+    environment:
+      # --- Gentleman ---
+      GENTLEMAN_CORS_ALLOW_ORIGINS:
+
+      # --- Anthropic ---
+      ANTHROPIC_API_KEY:
+
+      # --- OpenAI ---
+      # OPENAI_API_KEY:
+
+      # --- Amazon Bedrock ---
+      # AWS_DEFAULT_REGION:
+      # AWS_BEARER_TOKEN_BEDROCK:
+
+      # --- Ollama ---
+      # OLLAMA_BASE_URL:
