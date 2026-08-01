@@ -10,6 +10,8 @@ from importlib.resources import files, as_file
 
 import uvicorn
 
+dist_name = 'gentleman-agents'
+
 def init(dest_dir, *args, **kwargs):
 
     # src
@@ -27,7 +29,7 @@ def init(dest_dir, *args, **kwargs):
 
     # context and overwrite files
     context = {'project_name': dest_dir_path.name,
-                'gentleman_version': version('gentleman')}
+                'gentleman_version': version(dist_name)}
 
     overwrite_target_files = ['pyproject.toml', 'README.md']
 
@@ -73,7 +75,7 @@ def chat(*args, **kwargs):
 
     except (ImportError):
         print('chat command requires extras: '
-              'pip install "gentleman[chat]"', file=sys.stderr)
+              f'pip install "{dist_name}[chat]"', file=sys.stderr)
 
         sys.exit(1)
 
