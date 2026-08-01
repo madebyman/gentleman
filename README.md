@@ -1,5 +1,10 @@
 # Gentleman
 
+[![PyPI](https://img.shields.io/pypi/v/gentleman-agents)](https://pypi.org/project/gentleman-agents/)
+[![Python](https://img.shields.io/pypi/pyversions/gentleman-agents)](https://pypi.org/project/gentleman-agents/)
+[![License](https://img.shields.io/pypi/l/gentleman-agents)](https://github.com/madebyman/gentleman/blob/main/LICENSE)
+[![Docker](https://img.shields.io/badge/ghcr.io-gentleman-blue?logo=docker)](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
+
 *A gentleman among agents.*
 
 Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans.
