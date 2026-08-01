@@ -4,10 +4,8 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    #"gentleman>=${gentleman_version}",
-    "gentleman",
+    "gentleman-agents>=${gentleman_version}",
 ]
 
-
-[tool.uv.sources]
-gentleman = { git = "https://github.com/madebyman/gentleman" }
+[tool.uv]
+package = false

@@ -472,7 +472,7 @@ wheels = [
 ]
 
 [[package]]
-name = "gentleman"
+name = "gentleman-agents"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -500,7 +500,7 @@ requires-dist = [
     { name = "a2a-sdk", specifier = ">=0.3,<1" },
     { name = "fasta2a", extras = ["pydantic-ai"], specifier = ">=0.6.1,<0.7" },
     { name = "fastapi", specifier = ">=0.139.0" },
-    { name = "gentleman", extras = ["chat"], marker = "extra == 'all'" },
+    { name = "gentleman-agents", extras = ["chat"], marker = "extra == 'all'" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "prompt-toolkit", marker = "extra == 'chat'", specifier = ">=3.0.52" },
     { name = "pydantic-ai-slim", extras = ["ag-ui", "anthropic", "bedrock", "mcp", "openai", "spec"], specifier = ">=2.10.0" },
