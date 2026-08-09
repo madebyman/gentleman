@@ -1,10 +1,14 @@
 import asyncio
 from uuid import uuid4
 
+from contextlib import asynccontextmanager
+
 import httpx
 
 from a2a.client import A2ACardResolver, ClientFactory, ClientConfig
-from a2a.types import Task, TaskQueryParams, TaskState, Message, Part, Role, TextPart
+
+from a2a.types import (Task, TaskQueryParams, TaskState ,
+                       Message, Part, Role, TextPart)
 
 from pydantic_ai import Tool
 
@@ -12,6 +16,7 @@ from fasta2a.pydantic_ai import agent_to_a2a
 
 from fastapi.responses import StreamingResponse
 
+# ag-ui proxy
 from ag_ui.core import (EventType, RunAgentInput,
                         RunErrorEvent, RunFinishedEvent,
                         RunStartedEvent, TextMessageContentEvent,
@@ -19,12 +24,19 @@ from ag_ui.core import (EventType, RunAgentInput,
 
 from ag_ui.encoder import EventEncoder
 
+# a2a proxy
+from starlette.applications import Starlette
+from starlette.background import BackgroundTask
+from starlette.responses import JSONResponse
+from starlette.routing import Route, get_route_path
+
 # a2a client
-terminal = {TaskState.completed,TaskState.failed,
+terminal = {TaskState.completed, TaskState.failed,
             TaskState.canceled, TaskState.rejected}
 
 
 def _user_message(prompt):
+
     return Message(role=Role.user,
                    parts=[Part(root=TextPart(text=prompt))],
                    message_id=uuid4().hex)
@@ -58,21 +70,20 @@ def _extract_text(obj):
     return '\n'.join(v for v in texts if v)
 
 
-def fetch_agent_card(config):
+def make_tool(name, config):
 
-    with httpx.Client(headers=config.headers, timeout=config.timeout) as c:
-
-        res = c.get(f'{config.url}/.well-known/agent-card.json')
-        res.raise_for_status()
-
-        return res.json()
+    return Tool(make_ask(config),
+                name=f'ask_{name}',
+                description=config.description or name)
 
 
-def _make_ask(config):
+def make_ask(config, extra_headers=None):
 
     async def ask(prompt):
 
-        async with httpx.AsyncClient(headers=config.headers,
+        headers = {**(config.headers or {}), **(extra_headers or {})}
+
+        async with httpx.AsyncClient(headers=headers,
                                      timeout=config.timeout,
                                      follow_redirects=True) as c:
 
@@ -99,12 +110,102 @@ def _make_ask(config):
     return ask
 
 
-def make_remote_tool(name, config):
 
-    card = fetch_agent_card(config)
-    description = config.description or card.get('description') or name
+# a2a proxy
+X_GENTLEMAN_HOP ='x-gentleman-hop'
 
-    return Tool(_make_ask(config), name=f'ask_{name}', description=description)
+drop_headers = {'host', 'content-length',
+                'transfer-encoding', 'connection'}
+
+def make_a2a_proxy(name, config, url, max_hop):
+
+    @asynccontextmanager
+    async def lifespan(app):
+
+        async with httpx.AsyncClient(headers=config.headers,
+                                     timeout=config.timeout,
+                                     follow_redirects=True) as c:
+
+            app.state.client = c
+            yield
+
+
+    async def agent_card(request):
+
+        hop = int(request.headers.get(X_GENTLEMAN_HOP , 0))
+
+        if hop >= max_hop:
+            return JSONResponse(
+                    {'error': f'gentleman: hop limit exceeded ({hop})'},
+                    status_code=508)
+
+        headers = {X_GENTLEMAN_HOP: str(hop + 1)}
+
+        try:
+            res = await request.app.state.client.get(
+                    f'{config.url}/.well-known/agent-card.json',
+                    headers=headers)
+
+            if res.status_code == 508:
+                return JSONResponse(res.json(), status_code=508)
+
+            res.raise_for_status()
+            card = res.json()
+
+        except Exception as err:
+            return JSONResponse({'error': str(err)}, status_code=502)
+
+        card = {**card, 'name': name,
+                        'url': url,
+                        'description': (config.description or
+                                        card.get('description') or name)}
+
+        for v in card.get('additionalInterfaces') or []:
+            v['url'] = url
+
+        return JSONResponse(card)
+
+
+    async def proxy(request):
+
+        hop = int(request.headers.get(X_GENTLEMAN_HOP , 0))
+
+        if hop >= max_hop:
+            return JSONResponse(
+                    {'error': f'gentleman: hop limit exceeded ({hop})'},
+                    status_code=508)
+
+        headers = {k: v for k, v in request.headers.items()
+                   if k.lower() not in drop_headers}
+
+        headers = {**headers,
+                   **(config.headers or {}),
+                   X_GENTLEMAN_HOP: str(hop + 1)}
+
+        c = request.app.state.client
+        p = get_route_path(request.scope)
+
+        req = c.build_request(request.method,
+                              f'{config.url}{p}',
+                              params=request.query_params,
+                              headers=headers,
+                              content=await request.body())
+
+        res = await c.send(req, stream=True)
+
+        headers = {k: v for k, v in res.headers.items()
+                   if k.lower() not in drop_headers}
+
+        return StreamingResponse(res.aiter_raw(),
+                                 status_code=res.status_code,
+                                 headers=headers,
+                                 background=BackgroundTask(res.aclose))
+
+
+    return Starlette(
+            lifespan=lifespan,
+            routes=[Route('/.well-known/agent-card.json', agent_card),
+                    Route('/{path:path}', proxy, methods=['GET', 'POST'])])
 
 
 # ag-ui proxy
@@ -117,11 +218,18 @@ def _last_user_text(messages):
     return ''
 
 
-def make_agui_proxy(config):
-
-    ask = _make_ask(config)
+def make_agui_proxy(config, max_hop):
 
     async def handle(request):
+
+        hop = int(request.headers.get(X_GENTLEMAN_HOP , 0))
+
+        if hop >= max_hop:
+            return JSONResponse(
+                    {'error': f'gentleman: hop limit exceeded ({hop})'},
+                    status_code=508)
+
+        ask = make_ask(config, {X_GENTLEMAN_HOP: str(hop + 1)})
 
         input = RunAgentInput.model_validate(await request.json())
 
@@ -165,16 +273,18 @@ def make_agui_proxy(config):
 
 
 # a2a server
-def build_a2a(agents, base_url):
+def build_a2a(agents, remotes, base_url, max_hop):
 
-    a2a = {
-        k: agent_to_a2a(v,
-                        name=k,
-                        url=f'{base_url}/a2a/{k}',
-                        description=v.render_description() or k)
+    a2a = {k: agent_to_a2a(v,
+                           name=k,
+                           url=f'{base_url}/a2a/{k}',
+                           description=v.render_description() or k)
 
-        for k, v in agents.items()
-    }
+              for k, v in agents.items()}
+
+
+    a2a.update({k: make_a2a_proxy(k, v, f'{base_url}/a2a/{k}', max_hop)
+                   for k, v in remotes.items()})
 
     return a2a
 

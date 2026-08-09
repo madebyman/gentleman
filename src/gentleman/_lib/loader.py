@@ -59,8 +59,12 @@ def load_toolsets(config_dir):
     if not mcp_config_file_path.exists():
         return []
 
-    toolsets = load_mcp_toolsets(mcp_config_file_path)
-    return toolsets
+    try:
+        return load_mcp_toolsets(mcp_config_file_path)
+
+    except (Exception) as err:
+        raise ConfigError(
+                f'{agent_dir.name}/mcp_config.json: {err}') from err
 
 
 def load_a2a_config(agent_dir):
@@ -71,20 +75,21 @@ def load_a2a_config(agent_dir):
     return A2AConfig.model_validate(a2a_yaml)
 
 
-def load_agents(config_dir, make_delegation_tool, make_remote_tool):
+def load_agents(agents_dir, make_delegation_tool, make_remote_tool):
 
-    if (config_dir / 'conductor.yaml').exists():
+    if not agents_dir.is_dir():
+        raise ConfigError(f'agents directory not found: {agents_dir}')
 
-        raise ConfigError(
-            'config/conductor.yaml is no longer supported: '
-            'move it into config/<name>/conductor.yaml with metadata.delegates')
+    candidates = sorted(v for v in agents_dir.iterdir()
+                        if v.is_dir() and not v.name.startswith('.'))
 
-    agents_dirs = sorted(v for v in config_dir.iterdir() if v.is_dir())
+    if not candidates:
+        raise ConfigError(f'no agents found in {agents_dir}')
+
     output_type = [str, DeferredToolRequests]
-
     errors, specs, remote_agents = [], {}, {}
 
-    for v in agents_dirs:
+    for v in candidates:
 
         if (err := _check_exclusive(v)) is not None:
             errors.append(err)
@@ -100,11 +105,11 @@ def load_agents(config_dir, make_delegation_tool, make_remote_tool):
                 errors.append(f'{v.name}/a2a.yaml: {err}')
 
         # conductor or agent
-        elif ((file := v / 'conductor.yaml').exists()
-                or (file := v / 'agent.yaml').exists()):
+        elif ((f := v / 'conductor.yaml').exists()
+                or (f := v / 'agent.yaml').exists()):
 
             try:
-                spec = yaml.safe_load(file.read_text(encoding='utf-8')) or {}
+                spec = yaml.safe_load(_expand_env_vars(f.read_text(encoding='utf-8'))) or {}
 
             except (Exception) as err:
                 errors.append(f'{v.name}/{file.name}: {err}')
@@ -151,8 +156,9 @@ def load_agents(config_dir, make_delegation_tool, make_remote_tool):
 
         return local_agents[name]
 
-    for name in specs:
-        build(name)
+    for v in specs:
+        build(v)
 
     return local_agents, remote_agents
+
 

@@ -1,5 +1,5 @@
 model: anthropic:claude-sonnet-4-6
-name: gentleman
+name: example-agent
 description: A helpful assistant.
 instructions: |
   You are a helpful assistant.

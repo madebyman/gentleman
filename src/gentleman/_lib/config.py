@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class CorsSettings(BaseSettings):
@@ -11,9 +12,14 @@ class CorsSettings(BaseSettings):
     allow_credentials: bool = False
 
 
+class GentlemanSettings(BaseSettings):
+
+    model_config = SettingsConfigDict(env_prefix='GENTLEMAN_')
+    agents_dir: Path = Path('agents')
+
+
 class A2ASettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix='GENTLEMAN_A2A_')
     base_url: str = 'http://localhost:8000'
-
-
+    max_hop: int = 8
