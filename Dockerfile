@@ -28,7 +28,7 @@ COPY --from=builder --chown=gentleman:gentleman /app/.venv /app/.venv
 COPY --chown=gentleman:gentleman src/gentleman/_tmpl/agents/ /app/agents/
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    GENTLEMAN_AGENTS_DIR=/app/agents
+    GENTLEMAN_APP_AGENTS_DIR=/app/agents
 
 USER gentleman
 EXPOSE 8000

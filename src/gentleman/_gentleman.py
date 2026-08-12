@@ -1,50 +1,45 @@
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from ._lib.settings import AppSettings, RemoteSettings
+from ._lib.core import builder, loader
 
-from pydantic_ai.ui.ag_ui import AGUIAdapter
+from ._lib.port.agui import create_agui_router
+from ._lib.port.a2a import create_a2a
+from ._lib.port.mcp import create_mcp
 
-from starlette.requests import Request
-from starlette.responses import Response
-
-from ._lib import config, loader
-
-from ._lib.a2a import (build_a2a,
-                       make_agui_proxy,
-                       make_tool as make_remote_tool)
-
-from ._lib.conductor import make_tool as make_delegation_tool
-from ._lib.mcp import build_mcp
 
 __all__ = ['create_gentleman']
 
+
 class _Gentleman:
 
-    def __init__(self, agents_dir=None, *, base_url=None, name=None):
+    def __init__(self, agents_dir=None, *, app_name=None, app_origin=None):
 
-        gentleman_settings = config.GentlemanSettings() 
-        a2a_settings = config.A2ASettings()
+        app_settings = AppSettings() 
+        remote_settings = RemoteSettings()
+
+        self._app_name = app_name or app_settings.name
+
+        self._app_origin = (
+                app_origin or app_settings.origin).rstrip('/')
 
         self._agents_dir = Path(
-                agents_dir or gentleman_settings.agents_dir).resolve()
+                agents_dir or app_settings.agents_dir).resolve()
 
-        self._base_url = (
-                base_url or a2a_settings.base_url).rstrip('/')
+        self._max_hop = remote_settings.max_hop
 
-        self._max_hop = a2a_settings.max_hop
+        self._local_specs, self._remote_specs = loader.load_specs(
+                self._agents_dir)
 
-        self._name = name or 'gentleman'
+        self._agents = builder.build_agents(
+                self._local_specs, self._remote_specs)
 
-        self._agents, self._remotes = loader.load_agents(
-                self._agents_dir, make_delegation_tool, make_remote_tool)
+        self._a2a, self._mcp = {}, None
 
-        self._proxies = {
-                k: make_agui_proxy(v, self._max_hop) for k, v in self._remotes.items()}
-
-        self._a2a = None
-
-        self._mcp = build_mcp(self._agents, self._remotes, name=self._name)
+    @property
+    def app_name(self):
+        return self._app_name
 
     @property
     def agents(self):
@@ -58,30 +53,11 @@ class _Gentleman:
     def is_bundled_example(self):
         return (self._agents_dir / '.bundled-example').exists()
 
-    def _router(self):
-        router = APIRouter()
-
-        @router.post('/agents/{agent_name}')
-        async def agents(agent_name: str, request: Request) -> Response:
-
-           # ag-ui
-            if (agent := self._agents.get(agent_name)) is not None:
-                return await AGUIAdapter.dispatch_request(request,
-                                                          agent=agent)
-
-            # ag-ui proxy
-            if (proxy := self._proxies.get(agent_name)) is not None:
-                return await proxy(request)
-
-            raise HTTPException(404)
-
-        return router
-
     @asynccontextmanager
     async def lifespan(self, app=None):
 
-        if self._a2a is None:
-            raise RuntimeError('gentleman: attach() must be called before lifespan')
+        # if self._a2a is None:
+            # raise RuntimeError('gentleman: attach() must be called before lifespan')
 
         async with AsyncExitStack() as stack:
 
@@ -90,20 +66,17 @@ class _Gentleman:
                 await stack.enter_async_context(v)
 
             # a2a
-            for v in self._a2a.values():
-                await stack.enter_async_context(
-                        v.router.lifespan_context(v))
+            await stack.enter_async_context(self._a2a.lifespan())
 
             # mcp
-            await stack.enter_async_context(
-                    self._mcp.session_manager.run())
+            await stack.enter_async_context(self._mcp.lifespan())
 
             yield
 
     def attach(self, app, prefix=''):
 
-        if self._a2a is not None:
-            raise RuntimeError('gentleman: already attached')
+        # if self._a2a is not None:
+            # raise RuntimeError('gentleman: already attached')
 
         prefix = prefix.rstrip('/')
 
@@ -111,26 +84,32 @@ class _Gentleman:
             raise ValueError(
                     f"gentleman: prefix must start with '/': {prefix!r}")
 
-        app.include_router(self._router(), prefix=prefix)
+        # agui
+        agui_router = create_agui_router(
+                self._agents, self._remote_specs, max_hop=self._max_hop)
 
-        # /a2a
-        self._a2a = build_a2a(self._agents,
-                              self._remotes,
-                              f'{self._base_url}{prefix}',
-                              self._max_hop)
+        app.include_router(agui_router, prefix=prefix)
 
-        for k, v in self._a2a.items():
-            app.mount(f'{prefix}/a2a/{k}', v)
+        # a2a
+        self._a2a = create_a2a(self._agents,
+                               self._remote_specs,
+                               base_url=f'{self._app_origin}{prefix}',
+                               max_hop=self._max_hop)
 
-        # /mcp
-        app.mount(f'{prefix}/mcp', self._mcp.streamable_http_app())
+        app.mount(f'{prefix}/a2a', self._a2a.app)
+
+        # mcp
+        self._mcp = create_mcp(
+                self._agents, self._remote_specs, app_name=self._app_name)
+
+        app.mount(f'{prefix}/mcp', self._mcp.app)
 
         return app
 
 
-def create_gentleman(agents_dir=None, *, base_url=None, name=None):
+def create_gentleman(agents_dir=None, *, app_name=None, app_origin=None):
 
     return _Gentleman(
-            agents_dir, base_url=base_url, name=name)
+            agents_dir, app_name=app_name, app_origin=app_origin)
 
 
