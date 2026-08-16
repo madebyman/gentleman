@@ -2,7 +2,7 @@
 name = "gentleman-agents"
 description = "Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans"
 keywords = ["ai", "agents", "agent-server", "llm", "pydantic-ai", "mcp", "a2a", "ag-ui"]
-version = "0.1.1"
+version = "0.2.0"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "a2a-sdk>=0.3,<1",
+    "a2a-sdk[http-server]>=1.0.3,<1.1",
     "fasta2a[pydantic-ai]>=0.6.1,<0.7",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",

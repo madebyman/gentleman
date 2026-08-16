@@ -1,7 +1,15 @@
-class BuildError(RuntimeError):
+class Error(RuntimeError):
     pass
 
 
-class LoadError(RuntimeError):
+class LoadError(Error):
+    pass
+
+
+class BuildError(Error):
+    pass
+
+
+class LifecycleError(Error):
     pass
 

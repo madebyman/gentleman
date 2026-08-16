@@ -3,30 +3,12 @@ import re
 
 import yaml
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, ValidationError
+from pydantic import ValidationError
 
-from pydantic_ai import AgentSpec
 from pydantic_ai.mcp import load_mcp_toolsets
 
+from ..specs import LocalSpec, RemoteSpec
 from ..._errors import LoadError
-
-
-class LocalSpec(BaseModel):
-
-    model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
-
-    spec: AgentSpec
-    delegates: list[str] = Field(default_factory=list)
-    toolsets: list = Field(default_factory=list)
-
-
-class RemoteSpec(BaseModel):
-
-    model_config = ConfigDict(extra='forbid')
-    url: HttpUrl
-    description: str | None = None
-    headers: dict[str, str] = Field(default_factory=dict)
-    timeout: float = Field(default=60.0, gt=0)
 
 
 def _check_exclusive(agent_dir):
@@ -144,7 +126,7 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
         return LocalSpec(
                 spec=spec, delegates=delegates, toolsets=toolsets)
 
-    except ValidationError as err:
+    except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
 
 
@@ -153,7 +135,7 @@ def _load_remote_spec(spec_file_path):
     try:
         return RemoteSpec.model_validate(_load_yaml(spec_file_path))
 
-    except ValidationError as err:
+    except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
 
 
@@ -187,7 +169,7 @@ def load_specs(agents_dir):
             elif (f := v / 'a2a.yaml').exists():
                 remote_specs[v.name] = _load_remote_spec(f)
 
-        except LoadError as err:
+        except (LoadError) as err:
             errors.append(str(err))
             continue
 

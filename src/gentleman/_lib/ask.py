@@ -32,7 +32,7 @@ def make_tool(agent_name, agent):
                 takes_ctx=True,
                 name=f'ask_{agent_name}',
                 description=(
-                    agent.render_description()
+                    agent.description
                     or f'Delegate the task to the {agent_name} agent.'))
 
 

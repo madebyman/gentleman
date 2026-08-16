@@ -1,20 +1,71 @@
 from pydantic_ai import Agent, DeferredToolRequests
 
-from ..ask import local, remote
+from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
+
+from ..agent import LocalAgent, RemoteAgent
+from ..ask import make_tool
 from ..._errors import BuildError
 
 
 _output_type = [str, DeferredToolRequests]
 
 
-def build_agents(local_specs, remote_specs):
+def _build_agent_card(name, spec, base_url):
 
-    agents = {}
+    description=spec.description or name
+
+    skill_id = f'ask_{name}'
+    url = f'{base_url}/{name}'
+
+    # agent_version = spec.version or 'unknown'
+
+    skill = AgentSkill(
+        id=skill_id,
+        name=name,
+        description=description,
+        # input_modes=['text/plain'],
+        # output_modes=['text/plain'],
+        tags=[],
+        # tags=['gentleman'],
+    )
+
+    supported_interface = AgentInterface(
+        protocol_binding='JSONRPC',
+        protocol_version='1.0',
+        url=url,
+    )
+
+    return AgentCard(
+        name=name,
+        description=description,
+        version='unknown',
+        default_input_modes=['text/plain'],
+        default_output_modes=['text/plain'],
+        capabilities=AgentCapabilities(streaming=True),
+        skills=[skill],
+        supported_interfaces=[supported_interface],
+    )
+
+
+def build_agents(local_specs, remote_specs, *, base_url):
+
+    building = set()
+    local_agents, remote_agents = {}, {}
+
+    for k, v in remote_specs.items():
+        remote_agents[k] = RemoteAgent.from_spec(
+                v, _build_agent_card(k, v, base_url), name=k)
 
     def build(key):
 
-        if key in agents:
-            return agents[key]
+        if key in local_agents:
+            return local_agents[key]
+
+        if key in building:
+            raise BuildError(
+                    f'gentleman: delegation cycle detected at {key!r}')
+
+        building.add(key)
 
         agent_spec = local_specs[key]
         tools = []
@@ -22,22 +73,32 @@ def build_agents(local_specs, remote_specs):
         for k in agent_spec.delegates:
 
             if k in local_specs:
-                tools.append(local.make_tool(k, build(k)))
+                tools.append(make_tool(k, build(k)))
+
+            elif k in remote_agents:
+                tools.append(make_tool(k, remote_agents[k]))
 
             else:
-                tools.append(remote.make_tool(k, remote_specs[k]))
+                raise BuildError(
+                        f'gentleman: agent {key!r} delegates to {k!r}, '
+                        'but no such agent is defined')
 
-        agents[key] = Agent.from_spec(agent_spec.spec,
-                                      name=key,
-                                      tools=tools,
-                                      toolsets=agent_spec.toolsets,
-                                      output_type=_output_type)
+        agent = Agent.from_spec(agent_spec.spec,
+                                name=key,
+                                tools=tools,
+                                toolsets=agent_spec.toolsets,
+                                output_type=_output_type)
 
-        return agents[key]
+        local_agents[key] = LocalAgent(
+                agent, _build_agent_card(key, agent_spec.spec, base_url))
+
+
+        building.discard(key)
+        return local_agents[key]
 
     for k in local_specs:
         build(k)
 
-    return agents
+    return local_agents | remote_agents
 
 

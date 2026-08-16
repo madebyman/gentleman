@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ._gentleman import create_gentleman
-from ._errors import BuildError, LoadError
+from ._version import __version__
+from ._errors import BuildError, LoadError, LifecycleError
 
 from ._lib.settings import CorsSettings
 
@@ -15,7 +16,7 @@ __all__ = ['create_app']
 def create_app():
 
     try:
-        gentleman = create_gentleman()
+        gentleman = create_gentleman(prefix='')
 
     except (LoadError, BuildError) as err:
         print(err, file=sys.stderr)
@@ -27,8 +28,9 @@ def create_app():
               'mount or configure your own via GENTLEMAN_APP_AGENTS_DIR',
               file=sys.stderr)
 
-    app = FastAPI(
-            title=gentleman.app_name, lifespan=gentleman.lifespan)
+    app = FastAPI(title=gentleman.app_name,
+                  version=__version__,
+                  lifespan=gentleman.lifespan)
 
     app.add_middleware(
             CORSMiddleware, **CorsSettings().model_dump())
