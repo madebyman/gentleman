@@ -17,34 +17,28 @@ def _build_agent_card(name, spec, base_url):
     skill_id = f'ask_{name}'
     url = f'{base_url}/{name}'
 
-    # agent_version = spec.version or 'unknown'
+    metadata = spec.metadata or {}
+    agent_version = metadata.get('version', 'unknown')
 
-    skill = AgentSkill(
-        id=skill_id,
-        name=name,
-        description=description,
-        # input_modes=['text/plain'],
-        # output_modes=['text/plain'],
-        tags=[],
-        # tags=['gentleman'],
-    )
+    skill = AgentSkill(id=skill_id,
+                       name=name,
+                       description=description,
+                       # input_modes=['text/plain'],
+                       # output_modes=['text/plain'],
+                       tags=[])
 
-    supported_interface = AgentInterface(
-        protocol_binding='JSONRPC',
-        protocol_version='1.0',
-        url=url,
-    )
+    supported_interface = AgentInterface(protocol_binding='JSONRPC',
+                                         protocol_version='1.0',
+                                         url=url)
 
-    return AgentCard(
-        name=name,
-        description=description,
-        version='unknown',
-        default_input_modes=['text/plain'],
-        default_output_modes=['text/plain'],
-        capabilities=AgentCapabilities(streaming=True),
-        skills=[skill],
-        supported_interfaces=[supported_interface],
-    )
+    return AgentCard(name=name,
+                     description=description,
+                     version=agent_version,
+                     default_input_modes=['text/plain'],
+                     default_output_modes=['text/plain'],
+                     capabilities=AgentCapabilities(streaming=True),
+                     skills=[skill],
+                     supported_interfaces=[supported_interface])
 
 
 def build_agents(local_specs, remote_specs, *, base_url):

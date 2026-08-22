@@ -108,7 +108,7 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
     if not isinstance(spec, dict):
         raise LoadError(f'{_label(spec_file_path)}: mapping expected')
 
-    metadata = spec.pop('metadata', None) or {}
+    metadata = spec.get('metadata', None) or {}
 
     if not isinstance(metadata, dict):
         raise LoadError(f'{_label(spec_file_path)}: metadata must be a mapping')

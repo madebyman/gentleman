@@ -3,6 +3,9 @@ from mcp.server.fastmcp import FastMCP
 from ..ask import make_ask
 
 
+__all__ = ['create_mcp']
+
+
 class _MCP:
 
     def __init__(self, agents, *, app_name):

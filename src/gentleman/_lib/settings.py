@@ -16,12 +16,6 @@ class AppSettings(BaseSettings):
 class RemoteSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='GENTLEMAN_REMOTE_')
 
-    # const
-    hop_header: ClassVar[str] = 'x-gentleman-hop'
-
-    drop_headers: ClassVar[frozenset[str]] = frozenset({
-            'host', 'content-length', 'transfer-encoding', 'connection'})
-
     # env
     max_hop: int = 8
 

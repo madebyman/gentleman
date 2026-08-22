@@ -2,13 +2,14 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from ._lib.settings import AppSettings, RemoteSettings
-from ._lib.core import builder, loader
+from ._lib.core import builder, loader, hop
 
 from ._lib.port.agui import create_agui_router
 from ._lib.port.a2a import create_a2a_router, a2a_path_prefix
 from ._lib.port.mcp import create_mcp
 
 from ._errors import LifecycleError
+
 
 __all__ = ['create_gentleman']
 
@@ -88,28 +89,18 @@ class _Gentleman:
         if self._mcp is not None:
             raise LifecycleError('gentleman: already attached')
 
-        # agui
-        agui_router = create_agui_router(
-                self._agents, max_hop=self._max_hop)
+        # router
+        routers = {'agui': create_agui_router, 'a2a': create_a2a_router}
 
-        app.include_router(agui_router, prefix=self._app_prefix)
-
-        # a2a
-        a2a_router = create_a2a_router(
-                self._agents, max_hop=self._max_hop)
-
-        app.include_router(a2a_router, prefix=self._app_prefix)
-
-        # self._a2a = create_a2a(self._agents,
-                               # self._remote_specs,
-                               # base_url=f'{self._app_origin}{prefix}',
-                               # max_hop=self._max_hop)
-
-        # app.mount(f'{prefix}/a2a', self._a2a.app)
+        for k, v in routers.items():
+            app.include_router(v(self._agents, max_hop=self._max_hop),
+                               prefix=self._app_prefix)
 
         # mcp
         self._mcp = create_mcp(self._agents, app_name=self._app_name)
-        app.mount(f'{self._app_prefix}/mcp', self._mcp.app)
+
+        app.mount(f'{self._app_prefix}/mcp',
+                  hop.Guard(self._mcp.app, self._max_hop))
 
         return app
 

@@ -21,6 +21,7 @@ from a2a.client import ClientConfig, create_client
 from a2a.helpers import get_artifact_text, get_message_text, new_text_message
 from a2a.types import Role, SendMessageRequest
 
+from ..core import hop
 
 def _last_user_text(messages):
 
@@ -33,6 +34,10 @@ def _last_user_text(messages):
                     return part.content
 
     return ''
+
+
+async def _add_hop_header(request):
+    request.headers[hop.HEADER] = str(hop.current_hop() + 1)
 
 
 class RemoteAgent(AbstractAgent):
@@ -92,8 +97,12 @@ class RemoteAgent(AbstractAgent):
         timeout = httpx.Timeout(
                 connect=5.0, read=self._timeout, write=10.0, pool=5.0)
 
+        event_hooks = {'request': [_add_hop_header]}
+
         self._httpx = await self._stack.enter_async_context(
-                httpx.AsyncClient(timeout=timeout))
+                httpx.AsyncClient(timeout=timeout,
+                                  event_hooks=event_hooks,
+                                  follow_redirects=True))
 
         return self
 

@@ -8,7 +8,6 @@ class LocalSpec(BaseModel):
     spec: AgentSpec
     delegates: list[str] = Field(default_factory=list)
     toolsets: list = Field(default_factory=list)
-    # version: str = 'unknown'
 
 
 class RemoteSpec(BaseModel):
@@ -19,4 +18,4 @@ class RemoteSpec(BaseModel):
     description: str | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     timeout: float = Field(default=60.0, gt=0)
-    # version: str = 'unknown'
+    metadata: dict | None = None
