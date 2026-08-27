@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from ..core import hop
 from ..settings import RemoteSettings
 
+from ..._errors import Error
 
 __all__ = ['a2a_path_prefix', 'create_a2a', 'create_a2a_router']
 
@@ -108,11 +109,14 @@ class _A2AAgentExecutor(AgentExecutor):
 
 
         except (Exception) as err:
+
+            text = str(err) if isinstance(err, Error) else f'gentleman: {err}'
+
             await event_queue.enqueue_event(
                 new_text_status_update_event(task_id=task.id,
                                              context_id=task.context_id,
                                              state=TaskState.TASK_STATE_FAILED,
-                                             text=f'gentleman: {err}'))
+                                             text=text))
 
             return
 

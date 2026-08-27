@@ -18,7 +18,7 @@ def _resolve_url(name_or_url):
     if name_or_url.startswith(('http://', 'https://')):
         return name_or_url
 
-    return f'http://localhost:8000/agents/{name_or_url}'
+    return f'http://localhost:8000/agents/{name_or_url.strip("/")}'
 
 
 def _stream_server(url, thread_id, history):
@@ -36,6 +36,7 @@ def _stream_server(url, thread_id, history):
                       url,
                       json=payload,
                       timeout=None,
+                      follow_redirects=True,
                       headers={'Accept': 'text/event-stream'}) as response:
 
         if response.status_code >= 400:

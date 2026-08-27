@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,7 +11,8 @@ class AppSettings(BaseSettings):
     name: str = 'Gentleman'
     origin: str = 'http://localhost:8000'
     agents_dir: Path = Path('agents')
-
+    expose: frozenset[Literal['agui', 'a2a', 'mcp']] = frozenset(
+            {'agui','a2a', 'mcp'})
 
 class RemoteSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='GENTLEMAN_REMOTE_')

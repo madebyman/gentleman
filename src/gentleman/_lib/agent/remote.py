@@ -19,9 +19,16 @@ from pydantic_ai.run import AgentRunResult, AgentRunResultEvent
 
 from a2a.client import ClientConfig, create_client
 from a2a.helpers import get_artifact_text, get_message_text, new_text_message
-from a2a.types import Role, SendMessageRequest
+from a2a.types import Role, SendMessageRequest, TaskState
 
 from ..core import hop
+from ..._errors import RemoteLoopError, RemoteEmptyError, RemoteTaskError
+
+
+_FAILED_STATES = (TaskState.TASK_STATE_FAILED,
+                  TaskState.TASK_STATE_REJECTED,
+                  TaskState.TASK_STATE_CANCELED)
+
 
 def _last_user_text(messages):
 
@@ -38,6 +45,16 @@ def _last_user_text(messages):
 
 async def _add_hop_header(request):
     request.headers[hop.HEADER] = str(hop.current_hop() + 1)
+
+
+async def _raise_for_status(response):
+    if response.is_error:
+        await response.aread()
+
+        if response.status_code == 508:
+            raise RemoteLoopError(f'gentleman: loop detected at {response.request.url}')
+
+        response.raise_for_status()
 
 
 class RemoteAgent(AbstractAgent):
@@ -97,7 +114,8 @@ class RemoteAgent(AbstractAgent):
         timeout = httpx.Timeout(
                 connect=5.0, read=self._timeout, write=10.0, pool=5.0)
 
-        event_hooks = {'request': [_add_hop_header]}
+        event_hooks = {'request': [_add_hop_header],
+                       'response': [_raise_for_status]}
 
         self._httpx = await self._stack.enter_async_context(
                 httpx.AsyncClient(timeout=timeout,
@@ -146,6 +164,22 @@ class RemoteAgent(AbstractAgent):
             elif kind == 'message':
                 text = get_message_text(res.message)
 
+            elif kind == 'status_update':
+
+                state = res.status_update.status.state
+
+                if state in _FAILED_STATES:
+
+                    detail = get_message_text(res.status_update.status.message) or state.name
+
+                    if len(detail) > 200:
+                        detail = '…(truncated) ' + detail[-200:]
+
+                    raise RemoteTaskError(
+                            f'gentleman: remote task failed at {self._base_url}: {detail}')
+
+                continue
+
             else:
                 continue
 
@@ -174,11 +208,10 @@ class RemoteAgent(AbstractAgent):
                 yield PartDeltaEvent(
                         index=0, delta=TextPartDelta(content_delta=v))
 
-            text = ''.join(chunks)
-
             if not started:
-                yield PartStartEvent(index=0, part=TextPart(''))
+                raise RemoteEmptyError(f'gentleman: no response from {self._base_url}')
 
+            text = ''.join(chunks)
             yield PartEndEvent(index=0, part=TextPart(text))
 
             state = GraphAgentState(

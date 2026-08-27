@@ -4,7 +4,7 @@ from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
 
 from ..agent import LocalAgent, RemoteAgent
 from ..ask import make_tool
-from ..._errors import BuildError
+# from ..._errors import BuildError
 
 
 _output_type = [str, DeferredToolRequests]
@@ -43,7 +43,6 @@ def _build_agent_card(name, spec, base_url):
 
 def build_agents(local_specs, remote_specs, *, base_url):
 
-    building = set()
     local_agents, remote_agents = {}, {}
 
     for k, v in remote_specs.items():
@@ -55,27 +54,11 @@ def build_agents(local_specs, remote_specs, *, base_url):
         if key in local_agents:
             return local_agents[key]
 
-        if key in building:
-            raise BuildError(
-                    f'gentleman: delegation cycle detected at {key!r}')
-
-        building.add(key)
-
         agent_spec = local_specs[key]
-        tools = []
 
-        for k in agent_spec.delegates:
-
-            if k in local_specs:
-                tools.append(make_tool(k, build(k)))
-
-            elif k in remote_agents:
-                tools.append(make_tool(k, remote_agents[k]))
-
-            else:
-                raise BuildError(
-                        f'gentleman: agent {key!r} delegates to {k!r}, '
-                        'but no such agent is defined')
+        tools = [make_tool(k, build(k)
+                           if k in local_specs else remote_agents[k])
+                 for k in agent_spec.delegates]
 
         agent = Agent.from_spec(agent_spec.spec,
                                 name=key,
@@ -86,8 +69,6 @@ def build_agents(local_specs, remote_specs, *, base_url):
         local_agents[key] = LocalAgent(
                 agent, _build_agent_card(key, agent_spec.spec, base_url))
 
-
-        building.discard(key)
         return local_agents[key]
 
     for k in local_specs:

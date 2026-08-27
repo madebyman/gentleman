@@ -1,14 +1,11 @@
 from pydantic_ai import Tool
 
 
-APPROVAL_UNAVAILABLE = ('(This request requires user approval, '
-                        'which is not available in the current configuration.)')
-
-
 def _as_text(res):
 
     if not isinstance(res.output, str):
-        return APPROVAL_UNAVAILABLE
+        return ('(This request requires user approval, '
+                'which is not available in the current configuration.)')
 
     return res.output
 

@@ -4,6 +4,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, replace
 
 from fastapi import Request, HTTPException
+from fastapi.responses import PlainTextResponse
+
 from starlette.datastructures import Headers
 
 
@@ -24,10 +26,17 @@ def current_hop():
 
 
 def _parse_hop(raw):
-    if raw is None or not raw.isdigit():
+
+    if raw is None:
         return 0
 
-    return int(raw)
+    value = raw.strip()
+
+    if not value.isascii() or not value.isdecimal():
+        detail = f'gentleman: invalid {HEADER}: {raw!r}'
+        raise HTTPException(status_code=400, detail=detail)
+
+    return int(value)
 
 
 class Guard:
@@ -45,7 +54,7 @@ class Guard:
         hop = _parse_hop(Headers(scope=scope).get(HEADER))
 
         if hop >= self._max_hop:
-            detail = f'gentleman: hop limit exceeded ({hop} >= {max_hop})' 
+            detail = f'gentleman: hop limit exceeded ({hop} >= {self._max_hop})'
             await PlainTextResponse(
                     detail, status_code=508)(scope, receive, send)
             return

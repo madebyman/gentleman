@@ -25,7 +25,6 @@ classifiers = [
 
 dependencies = [
     "a2a-sdk[http-server]>=1.0.3,<1.1",
-    "fasta2a[pydantic-ai]>=0.6.1,<0.7",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
     "pydantic-ai-slim[ag-ui,anthropic,bedrock,mcp,openai,spec]>=2.10.0",

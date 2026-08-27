@@ -1,7 +1,8 @@
-from ._errors import LoadError, BuildError
+from ._errors import *
+from ._errors import __all__ as _errors_all
 
 
-__all__ = ['app', 'create_app', 'create_gentleman', 'LoadError', 'BuildError']
+__all__ = ['app', 'create_app', 'create_gentleman', *_errors_all]
 
 
 def __getattr__(name):

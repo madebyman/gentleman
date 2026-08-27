@@ -470,25 +470,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fasta2a"
-version = "0.6.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "opentelemetry-api" },
-    { name = "pydantic" },
-    { name = "starlette" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/28/35949997804129537becf17d0635b8b2b67036589a4da851e44a053857fc/fasta2a-0.6.1.tar.gz", hash = "sha256:e97b92771ad338166b1516dcbb687c9f3f8392a5cd5820542ec4b75ff5219a48", size = 1453473, upload-time = "2026-05-15T20:51:22.059Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/21/4d7e00c10bb4ec33a196efc55190ae086e97f5f487945bdfceb94df3e8d8/fasta2a-0.6.1-py3-none-any.whl", hash = "sha256:1b5369ee1b62405eebafa6d71c57c9e40a1a3f0dcbae5ec3aa6ee450361028dd", size = 28888, upload-time = "2026-05-15T20:51:20.222Z" },
-]
-
-[package.optional-dependencies]
-pydantic-ai = [
-    { name = "pydantic-ai-slim" },
-]
-
-[[package]]
 name = "fastapi"
 version = "0.141.1"
 source = { registry = "https://pypi.org/simple" }
@@ -551,7 +532,6 @@ version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "a2a-sdk", extra = ["http-server"] },
-    { name = "fasta2a", extra = ["pydantic-ai"] },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic-ai-slim", extra = ["ag-ui", "anthropic", "bedrock", "mcp", "openai", "spec"] },
@@ -572,7 +552,6 @@ chat = [
 [package.metadata]
 requires-dist = [
     { name = "a2a-sdk", extras = ["http-server"], specifier = ">=1.0.3,<1.1" },
-    { name = "fasta2a", extras = ["pydantic-ai"], specifier = ">=0.6.1,<0.7" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "gentleman-agents", extras = ["chat"], marker = "extra == 'all'" },
     { name = "httpx", specifier = ">=0.28.1" },
