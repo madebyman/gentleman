@@ -1,5 +1,4 @@
 model: anthropic:claude-sonnet-4-6
-name: example-agent
 description: A helpful assistant.
 instructions: |
   You are a helpful assistant.
@@ -7,3 +6,6 @@ instructions: |
   - Answer the user's questions clearly and concisely.
   - If you are unsure, say so instead of guessing.
   - Use the available tools when they help.
+metadata:
+  version: 1.0.0
+

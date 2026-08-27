@@ -1,11 +1,22 @@
-__all__ = ['app', 'create_app', 'create_gentleman']
+from ._errors import *
+from ._errors import __all__ as _errors_all
+
+
+__all__ = ['app', 'create_app', 'create_gentleman', *_errors_all]
+
 
 def __getattr__(name):
 
     if name == 'app':
         from ._app import create_app
 
-        app = create_app()
+        try:
+            app = create_app()
+
+        except (AttributeError) as err:
+            raise RuntimeError(
+                    f'gentleman: failed to create app: {err}') from err
+
         globals()['app'] = app
 
         return app

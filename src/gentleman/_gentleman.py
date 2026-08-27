@@ -1,50 +1,64 @@
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from ._lib.settings import AppSettings, RemoteSettings
+from ._lib.core import builder, loader, hop
 
-from pydantic_ai.ui.ag_ui import AGUIAdapter
+from ._lib.port.agui import create_agui_router
+from ._lib.port.a2a import create_a2a_router, a2a_path_prefix
+from ._lib.port.mcp import create_mcp
 
-from starlette.requests import Request
-from starlette.responses import Response
+from ._errors import LifecycleError
 
-from ._lib import config, loader
-
-from ._lib.a2a import (build_a2a,
-                       make_agui_proxy,
-                       make_tool as make_remote_tool)
-
-from ._lib.conductor import make_tool as make_delegation_tool
-from ._lib.mcp import build_mcp
 
 __all__ = ['create_gentleman']
 
+_PORTS = frozenset({'agui', 'a2a',  'mcp'})
+
+
 class _Gentleman:
 
-    def __init__(self, agents_dir=None, *, base_url=None, name=None):
+    def __init__(
+            self, agents_dir=None, *, name=None, origin=None, prefix=''):
 
-        gentleman_settings = config.GentlemanSettings() 
-        a2a_settings = config.A2ASettings()
+        if prefix and not prefix.startswith('/'):
+            raise ValueError(
+                    f"gentleman: prefix must start with '/': {prefix!r}")
+
+        app_settings = AppSettings() 
+        remote_settings = RemoteSettings()
 
         self._agents_dir = Path(
-                agents_dir or gentleman_settings.agents_dir).resolve()
+                agents_dir or app_settings.agents_dir).resolve()
 
-        self._base_url = (
-                base_url or a2a_settings.base_url).rstrip('/')
+        self._app_name = name or app_settings.name
 
-        self._max_hop = a2a_settings.max_hop
+        self._app_origin = (
+                origin or app_settings.origin).rstrip('/')
 
-        self._name = name or 'gentleman'
+        self._app_prefix = prefix.rstrip('/')
 
-        self._agents, self._remotes = loader.load_agents(
-                self._agents_dir, make_delegation_tool, make_remote_tool)
+        self._max_hop = remote_settings.max_hop
 
-        self._proxies = {
-                k: make_agui_proxy(v, self._max_hop) for k, v in self._remotes.items()}
+        # load
+        self._local_specs, self._remote_specs = loader.load_specs(
+                self._agents_dir)
 
-        self._a2a = None
+        # build
+        base_url = f'{self._app_origin}{self._app_prefix}{a2a_path_prefix}'
 
-        self._mcp = build_mcp(self._agents, self._remotes, name=self._name)
+        self._agents = builder.build_agents(
+                self._local_specs, self._remote_specs, base_url=base_url)
+
+        self._default_expose = app_settings.expose
+        self._expose = None
+
+        self._mcp = None
+
+    @property
+    def app_name(self):
+        return self._app_name
 
     @property
     def agents(self):
@@ -58,79 +72,64 @@ class _Gentleman:
     def is_bundled_example(self):
         return (self._agents_dir / '.bundled-example').exists()
 
-    def _router(self):
-        router = APIRouter()
-
-        @router.post('/agents/{agent_name}')
-        async def agents(agent_name: str, request: Request) -> Response:
-
-           # ag-ui
-            if (agent := self._agents.get(agent_name)) is not None:
-                return await AGUIAdapter.dispatch_request(request,
-                                                          agent=agent)
-
-            # ag-ui proxy
-            if (proxy := self._proxies.get(agent_name)) is not None:
-                return await proxy(request)
-
-            raise HTTPException(404)
-
-        return router
-
     @asynccontextmanager
     async def lifespan(self, app=None):
 
-        if self._a2a is None:
-            raise RuntimeError('gentleman: attach() must be called before lifespan')
+        if self._expose is None:
+            raise LifecycleError(
+                    'gentleman: attach() must be called before startup')
 
         async with AsyncExitStack() as stack:
 
-            # agents
+            # _agents
             for v in self._agents.values():
                 await stack.enter_async_context(v)
 
-            # a2a
-            for v in self._a2a.values():
-                await stack.enter_async_context(
-                        v.router.lifespan_context(v))
-
             # mcp
-            await stack.enter_async_context(
-                    self._mcp.session_manager.run())
+            if self._mcp is not None:
+                await stack.enter_async_context(self._mcp.lifespan())
 
             yield
 
-    def attach(self, app, prefix=''):
+    def attach(self, app, *, expose=None):
 
-        if self._a2a is not None:
-            raise RuntimeError('gentleman: already attached')
+        if self._expose is not None:
+            raise LifecycleError('gentleman: already attached')
 
-        prefix = prefix.rstrip('/')
+        p = (frozenset(expose) if expose is not None
+                 else self._default_expose or _PORTS)
 
-        if prefix and not prefix.startswith('/'):
-            raise ValueError(
-                    f"gentleman: prefix must start with '/': {prefix!r}")
+        if unknown := p - _PORTS:
+            raise ValueError(f'gentleman: unknown port(s): {sorted(unknown)}')
 
-        app.include_router(self._router(), prefix=prefix)
+        self._expose = p
 
-        # /a2a
-        self._a2a = build_a2a(self._agents,
-                              self._remotes,
-                              f'{self._base_url}{prefix}',
-                              self._max_hop)
+        # router
+        routers = {'agui': create_agui_router, 'a2a': create_a2a_router}
 
-        for k, v in self._a2a.items():
-            app.mount(f'{prefix}/a2a/{k}', v)
+        filtered_routers = {
+                k: v for k, v in routers.items() if k in self._expose}
 
-        # /mcp
-        app.mount(f'{prefix}/mcp', self._mcp.streamable_http_app())
+        for k, v in filtered_routers.items():
+            app.include_router(v(self._agents, max_hop=self._max_hop),
+                               prefix=self._app_prefix)
+
+        # mcp
+        if 'mcp' not in self._expose:
+            return app
+
+        self._mcp = create_mcp(self._agents, app_name=self._app_name)
+
+        app.mount(f'{self._app_prefix}/mcp',
+                  hop.Guard(self._mcp.app, self._max_hop))
 
         return app
 
 
-def create_gentleman(agents_dir=None, *, base_url=None, name=None):
+def create_gentleman(
+        agents_dir=None,*, name=None, origin=None, prefix=''):
 
     return _Gentleman(
-            agents_dir, base_url=base_url, name=name)
+            agents_dir, name=name, origin=origin, prefix=prefix)
 
 
