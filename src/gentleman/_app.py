@@ -7,6 +7,7 @@ from ._gentleman import create_gentleman
 from ._version import __version__
 from ._errors import BuildError, LoadError, LifecycleError
 
+from ._lib.port.health import create_health_router
 from ._lib.settings import CorsSettings
 
 
@@ -34,6 +35,9 @@ def create_app():
 
     app.add_middleware(
             CORSMiddleware, **CorsSettings().model_dump())
+
+    app.include_router(
+            create_health_router(gentleman, include_in_schema=True))
 
     return gentleman.attach(app)
 
