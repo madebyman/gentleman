@@ -11,6 +11,7 @@ services:
       - ./agents:/app/agents
     environment:
       # --- Gentleman ---
+      GENTLEMAN_APP_ORIGIN:
       GENTLEMAN_CORS_ALLOW_ORIGINS:
 
       # --- Anthropic ---

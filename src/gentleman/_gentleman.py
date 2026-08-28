@@ -2,6 +2,8 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
+from pydantic import BaseModel, ConfigDict
+
 from ._lib.settings import AppSettings, RemoteSettings
 from ._lib.core import builder, loader, hop
 
@@ -12,9 +14,19 @@ from ._lib.port.mcp import create_mcp
 from ._errors import LifecycleError
 
 
-__all__ = ['create_gentleman']
+__all__ = ['create_gentleman', 'Readiness']
 
 _PORTS = frozenset({'agui', 'a2a',  'mcp'})
+
+
+class Readiness(BaseModel):
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    ready: bool
+    agents: int
+    reason: str | None = None
 
 
 class _Gentleman:
@@ -28,6 +40,8 @@ class _Gentleman:
 
         app_settings = AppSettings() 
         remote_settings = RemoteSettings()
+
+        self._serving = False
 
         self._agents_dir = Path(
                 agents_dir or app_settings.agents_dir).resolve()
@@ -72,6 +86,16 @@ class _Gentleman:
     def is_bundled_example(self):
         return (self._agents_dir / '.bundled-example').exists()
 
+    def readiness(self):
+        reason = ('not serving'if not self._serving else
+                  'no agents' if not self._agents else
+                  None)
+
+        return Readiness(name=self._app_name,
+                         ready=reason is None,
+                         agents=len(self._agents),
+                         reason=reason)
+
     @asynccontextmanager
     async def lifespan(self, app=None):
 
@@ -89,7 +113,13 @@ class _Gentleman:
             if self._mcp is not None:
                 await stack.enter_async_context(self._mcp.lifespan())
 
-            yield
+            self._serving = True
+
+            try:
+                yield
+
+            finally:
+                self._serving = False
 
     def attach(self, app, *, expose=None):
 
