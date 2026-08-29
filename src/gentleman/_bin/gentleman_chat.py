@@ -1,17 +1,13 @@
+import os
+import sys
 import json
+
 from uuid import uuid4
 
 import httpx
 
 from ag_ui.core import RunAgentInput, UserMessage, AssistantMessage
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.history import FileHistory
-
-from rich.live import Live
-from rich.console import Console
-from rich.markdown import Markdown
 
 def _resolve_url(name_or_url):
 
@@ -58,12 +54,24 @@ def _stream_server(url, thread_id, history):
                 raise RuntimeError(event.get('message', 'agent run failed'))
 
 
-def chat(name_or_url, *args, **kwargs):
+def _repl(url):
+
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.formatted_text import HTML
+        # from prompt_toolkit.history import FileHistory
+
+        from rich.live import Live
+        from rich.console import Console
+        from rich.markdown import Markdown
+
+    except (ImportError):
+        print('interactive chat requires extras: '
+              'pip install "gentleman-agents[chat]"', file=sys.stderr)
+        sys.exit(1)
 
     thread_id = str(uuid4())
     history = []
-
-    endpoint = _resolve_url(name_or_url)
 
     session = PromptSession(
             HTML('<b>gentleman</b> <ansibrightblack>❯</ansibrightblack> '))
@@ -94,7 +102,7 @@ def chat(name_or_url, *args, **kwargs):
                       refresh_per_second=10,
                       vertical_overflow='visible') as live:
 
-                for v in _stream_server(endpoint, thread_id, history):
+                for v in _stream_server(url, thread_id, history):
                     chunks.append(v)
                     live.update(Markdown(''.join(chunks)))
 
@@ -106,5 +114,67 @@ def chat(name_or_url, *args, **kwargs):
         history.append(AssistantMessage(id=str(uuid4()),
                                         role='assistant',
                                         content=''.join(chunks)))
+
+
+def _batch(url, prompt):
+
+    thread_id = str(uuid4())
+    history = [UserMessage(id=str(uuid4()), role='user', content=prompt)]
+
+    stdout = sys.stdout
+    last = ''
+
+    try:
+        for v in _stream_server(url, thread_id, history):
+            if not v:
+                continue
+
+            stdout.write(v)
+            stdout.flush()
+            last = v
+
+    except (httpx.HTTPError, RuntimeError) as err:
+        if last:
+            stdout.write('\n')
+            stdout.flush()
+
+        print(f'gentleman: {err}', file=sys.stderr)
+        sys.exit(1)
+
+    except (KeyboardInterrupt):
+        print('gentleman: interrupted', file=sys.stderr)
+        sys.exit(130)
+
+    except (BrokenPipeError):
+        os.dup2(os.open(os.devnull, os.O_WRONLY), stdout.fileno())
+        sys.exit(141)
+
+    if not last:
+        print('gentleman: empty response', file=sys.stderr)
+        sys.exit(1)
+
+    if not last.endswith('\n'):
+        stdout.write('\n')
+
+    stdout.flush()
+
+
+def chat(name_or_url, *args, **kwargs):
+
+    url = _resolve_url(name_or_url)
+
+    # repl
+    if sys.stdin is not None and sys.stdin.isatty():
+        _repl(url)
+
+    # batch
+    raw = sys.stdin.buffer.read() if sys.stdin is not None else b''
+    prompt = raw.decode('utf-8', errors='replace').strip()
+
+    if not prompt:
+        print('gentleman: no input on stdin', file=sys.stderr)
+        sys.exit(1) 
+
+    _batch(url, prompt)
 
 
