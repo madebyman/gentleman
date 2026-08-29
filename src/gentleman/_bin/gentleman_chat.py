@@ -31,7 +31,7 @@ def _stream_server(url, thread_id, history):
     with httpx.stream('POST',
                       url,
                       json=payload,
-                      timeout=None,
+                      timeout=httpx.Timeout(None, connect=10.0),
                       follow_redirects=True,
                       headers={'Accept': 'text/event-stream'}) as response:
 
@@ -106,6 +106,11 @@ def _repl(url):
                     chunks.append(v)
                     live.update(Markdown(''.join(chunks)))
 
+        except (KeyboardInterrupt):
+            history.pop()
+            console.print('[yellow]Interrupted.[/yellow]')
+            continue
+
         except (httpx.HTTPError, RuntimeError) as err:
             history.pop()
             console.print(f'[red]I do apologize — {err}[/red]')
@@ -165,7 +170,7 @@ def chat(name_or_url, *args, **kwargs):
 
     # repl
     if sys.stdin is not None and sys.stdin.isatty():
-        _repl(url)
+        return _repl(url)
 
     # batch
     raw = sys.stdin.buffer.read() if sys.stdin is not None else b''
@@ -175,6 +180,6 @@ def chat(name_or_url, *args, **kwargs):
         print('gentleman: no input on stdin', file=sys.stderr)
         sys.exit(1) 
 
-    _batch(url, prompt)
+    return _batch(url, prompt)
 
 
