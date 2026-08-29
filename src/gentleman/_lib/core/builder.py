@@ -1,18 +1,51 @@
-from pydantic_ai import Agent, DeferredToolRequests
-
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
+
+from fastmcp.client.transports import StdioTransport
+
+from pydantic_ai import Agent, DeferredToolRequests
+from pydantic_ai.mcp import MCPToolset
+from pydantic_ai.toolsets import PrefixedToolset
 
 from ..agent import LocalAgent, RemoteAgent
 from ..ask import make_tool
-# from ..._errors import BuildError
+from ..specs import StdioServer
 
 
 _output_type = [str, DeferredToolRequests]
+_init_timeout = 30.0
+
+
+def _build_stdio_toolset(entry, *, init_timeout):
+
+    transport = StdioTransport(command=entry.command,
+                               args=entry.args,
+                               env=entry.env,
+                               cwd=entry.cwd)
+
+    return MCPToolset(transport, init_timeout=init_timeout)
+
+
+def _build_http_toolset(entry, *, init_timeout):
+
+    return MCPToolset(entry.url,
+                      headers=entry.headers,
+                      init_timeout=init_timeout)
+
+
+def _build_toolset(name, entry):
+
+    init_timeout = entry.init_timeout or _init_timeout
+
+    toolset = (_build_stdio_toolset(entry, init_timeout=init_timeout)
+               if isinstance(entry, StdioServer) else
+               _build_http_toolset(entry, init_timeout=init_timeout))
+
+    return PrefixedToolset(toolset, name)
 
 
 def _build_agent_card(name, spec, base_url):
 
-    description=spec.description or name
+    description = spec.description or name
 
     skill_id = f'ask_{name}'
     url = f'{base_url}/{name}'
@@ -60,10 +93,13 @@ def build_agents(local_specs, remote_specs, *, base_url):
                            if k in local_specs else remote_agents[k])
                  for k in agent_spec.delegates]
 
+        toolsets = [_build_toolset(k, v)
+                    for k, v in agent_spec.mcp_servers.items()]
+
         agent = Agent.from_spec(agent_spec.spec,
                                 name=key,
                                 tools=tools,
-                                toolsets=agent_spec.toolsets,
+                                toolsets=toolsets,
                                 output_type=_output_type)
 
         local_agents[key] = LocalAgent(
@@ -75,5 +111,4 @@ def build_agents(local_specs, remote_specs, *, base_url):
         build(k)
 
     return local_agents | remote_agents
-
 
