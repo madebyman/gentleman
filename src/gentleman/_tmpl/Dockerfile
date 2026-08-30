@@ -9,8 +9,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
 
-COPY pyproject.toml ./
-COPY uv.loc[k] ./
+COPY pyproject.toml uv.loc[k] ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-install-workspace --no-dev
