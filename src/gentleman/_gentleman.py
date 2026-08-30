@@ -107,7 +107,12 @@ class _Gentleman:
 
             # _agents
             for v in self._agents.values():
-                await stack.enter_async_context(v)
+                try:
+                    await stack.enter_async_context(v)
+
+                except Exception as err:
+                    raise LifecycleError(
+                            f'{v.name}: failed to start: {err}') from err
 
             # mcp
             if self._mcp is not None:

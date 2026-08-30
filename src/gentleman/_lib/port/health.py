@@ -11,8 +11,6 @@ class _Health:
     def __init__(self, *gentlemen, include_in_schema=False):
 
         self._gentleman = gentlemen
-        print(self._gentleman)
-
         self._include_in_schema = include_in_schema
 
         # router

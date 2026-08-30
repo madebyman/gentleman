@@ -1,13 +1,10 @@
 import os
 import re
-
 import yaml
 
 from pydantic import ValidationError
 
-from pydantic_ai.mcp import load_mcp_toolsets
-
-from ..specs import LocalSpec, RemoteSpec
+from ..specs import McpConfig, LocalSpec, RemoteSpec
 from ..._errors import LoadError
 
 
@@ -72,22 +69,23 @@ def _expand_env_vars(text):
 
         raise LoadError(f'environment variable ${{{m[1]}}} is not defined')
 
-    return re.compile(r'\$\{(\w+)(?::?-([^}]*))?\}').sub(repl, text)
+    return re.compile(r'\$\{([^}:]+)(:-([^}]*))?\}').sub(repl, text)
 
 
 def _label(spec_file_path):
     return f'{spec_file_path.parent.name}/{spec_file_path.name}'
 
 
-def _load_mcp_toolsets(mcp_config_file_path):
+def _load_mcp_servers(mcp_config_file_path):
 
     if not mcp_config_file_path.exists():
-        return []
+        return {}
 
     try:
-        return load_mcp_toolsets(mcp_config_file_path)
+        raw = mcp_config_file_path.read_text(encoding='utf-8')
+        return McpConfig.model_validate_json(_expand_env_vars(raw)).mcp_servers
 
-    except (OSError, ValueError) as err:
+    except (OSError, ValidationError, LoadError) as err:
         raise LoadError(f'{_label(mcp_config_file_path)}: {err}') from err
 
 
@@ -119,12 +117,12 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
         raise LoadError(f'{_label(spec_file_path)}: '
                         'metadata.delegates is only allowed in conductor.yaml')
 
-    toolsets = _load_mcp_toolsets(
+    mcp_servers = _load_mcp_servers(
             spec_file_path.with_name('mcp_config.json'))
 
     try:
         return LocalSpec(
-                spec=spec, delegates=delegates, toolsets=toolsets)
+                spec=spec, delegates=delegates, mcp_servers=mcp_servers)
 
     except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
@@ -180,5 +178,4 @@ def load_specs(agents_dir):
         raise LoadError(f'invalid agent configuration:{_bullets(errors)}')
 
     return local_specs, remote_specs
-
 
