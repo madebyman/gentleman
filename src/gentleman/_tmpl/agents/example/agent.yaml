@@ -1,11 +1,11 @@
 model: anthropic:claude-sonnet-4-6
 description: A helpful assistant.
+metadata:
+  version: 1.0.0
+  visibility: public
 instructions: |
   You are a helpful assistant.
 
   - Answer the user's questions clearly and concisely.
   - If you are unsure, say so instead of guessing.
   - Use the available tools when they help.
-metadata:
-  version: 1.0.0
-  visibility: public

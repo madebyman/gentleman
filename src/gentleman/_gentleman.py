@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from ._lib.settings import AppSettings, RemoteSettings
+from ._lib.settings import AppSettings, RemoteSettings, McpSettings
 from ._lib.core import builder, loader, hop
 
 from ._lib.port.agui import create_agui_router
@@ -147,14 +147,16 @@ class _Gentleman:
                 k: v for k, v in routers.items() if k in self._expose}
 
         for k, v in filtered_routers.items():
-            app.include_router(v(self._public_agents, max_hop=self._max_hop),
+            app.include_router(v(self._public_agents,max_hop=self._max_hop),
                                prefix=self._app_prefix)
 
         # mcp
         if 'mcp' not in self._expose:
             return app
 
-        self._mcp = create_mcp(self._public_agents, app_name=self._app_name)
+        self._mcp = create_mcp(self._public_agents,
+                               app_name=self._app_name,
+                               settings=McpSettings())
 
         app.mount(f'{self._app_prefix}/mcp',
                   hop.Guard(self._mcp.app, self._max_hop))

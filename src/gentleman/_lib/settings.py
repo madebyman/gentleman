@@ -31,3 +31,15 @@ class CorsSettings(BaseSettings):
     allow_headers: list[str] = ['*']
     allow_credentials: bool = False
 
+
+class McpSettings(BaseSettings):
+
+    model_config = SettingsConfigDict(env_prefix='GENTLEMAN_MCP_')
+
+    # env
+    allowed_hosts: list[str] = []
+    allowed_origins: list[str] = []
+
+    @property
+    def dns_rebinding_protection(self):
+        return bool(self.allowed_hosts)
