@@ -74,11 +74,11 @@ def _build_agent_card(name, spec, base_url):
                      supported_interfaces=[supported_interface])
 
 
-def build_agents(local_specs, remote_specs, *, base_url):
+def build_agents(spec, *, base_url):
 
     local_agents, remote_agents = {}, {}
 
-    for k, v in remote_specs.items():
+    for k, v in spec.remote.items():
         remote_agents[k] = RemoteAgent.from_spec(
                 v, _build_agent_card(k, v, base_url), name=k)
 
@@ -87,10 +87,10 @@ def build_agents(local_specs, remote_specs, *, base_url):
         if key in local_agents:
             return local_agents[key]
 
-        agent_spec = local_specs[key]
+        agent_spec = spec.local[key]
 
         tools = [make_tool(k, build(k)
-                           if k in local_specs else remote_agents[k])
+                           if k in spec.local else remote_agents[k])
                  for k in agent_spec.delegates]
 
         toolsets = [_build_toolset(k, v)
@@ -107,7 +107,7 @@ def build_agents(local_specs, remote_specs, *, base_url):
 
         return local_agents[key]
 
-    for k in local_specs:
+    for k in spec.local:
         build(k)
 
     return local_agents | remote_agents
