@@ -27,7 +27,8 @@ dependencies = [
     "a2a-sdk[http-server]>=1.0.3,<1.1",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
-    "pydantic-ai-slim[ag-ui,anthropic,bedrock,mcp,openai,spec]>=2.10.0",
+    "mcp>=2,<3",
+    "pydantic-ai-slim[ag-ui,anthropic,bedrock,mcp,openai,spec]>=2.37.0,<3",
     "pyyaml>=6.0.3",
     "uvicorn>=0.51.0",
 ]
