@@ -4,7 +4,7 @@ import yaml
 
 from pydantic import ValidationError
 
-from ..specs import McpConfig, LocalSpec, RemoteSpec
+from ..specs import Visibility, McpConfig, LocalSpec, RemoteSpec, Specs
 from ..._errors import LoadError
 
 
@@ -24,23 +24,17 @@ def _check_exclusive(agent_dir):
     return None
 
 
-def _bullets(errors):
-    return '\n  - ' + '\n  - '.join(errors)
+def _check_delegates(specs):
 
-
-def _check_delegates(local_specs, remote_specs):
-
-    known = set(local_specs) | set(remote_specs)
     errors, visited = [], set()
 
-    for k, v in local_specs.items():
+    for k, v in specs.local.items():
 
         for name in v.delegates:
-            if name not in known:
+            if name not in specs.names:
                 errors.append(f'{k}: unknown delegate "{name}"')
 
     def walk(name, trail):
-
         if name in trail:
             return [f'circular delegation: {" -> ".join((*trail, name))}']
 
@@ -48,20 +42,43 @@ def _check_delegates(local_specs, remote_specs):
             return []
 
         visited.add(name)
-
-        return [err for v in local_specs[name].delegates if v in local_specs
+        return [err for v in specs.local[name].delegates if v in specs.local
                     for err in walk(v, (*trail, name))]
 
-    for v in local_specs:
+    for v in specs.local:
         errors.extend(walk(v, ()))
 
     return errors
 
 
+def _check_visibility(specs):
+
+    if not specs.public:
+        return ['no public agents: add "visibility: public" to the metadata '
+                'of at least one agent']
+
+    reachable = specs.public.union(
+            *(v.delegates for v in specs.local.values()))
+
+    return [f'unreachable agent "{v}": private and not listed in '
+            'any metadata.delegates'
+            for v in sorted(specs.names - reachable)]
+
+
+def _bullets(errors):
+    return '\n  - ' + '\n  - '.join(errors)
+
+
+def _label(spec_file_path):
+    return f'{spec_file_path.parent.name}/{spec_file_path.name}'
+
+
 def _expand_env_vars(text):
 
     def repl(m):
-        if (v := os.environ.get(m[1])) is not None:
+        v = os.environ.get(m[1])
+
+        if v:
             return v
 
         if m[2] is not None:
@@ -69,11 +86,36 @@ def _expand_env_vars(text):
 
         raise LoadError(f'environment variable ${{{m[1]}}} is not defined')
 
-    return re.compile(r'\$\{([^}:]+)(:-([^}]*))?\}').sub(repl, text)
+    return re.compile(r'\$\{([^}:]+)(?::-([^}]*))?\}').sub(repl, text)
 
 
-def _label(spec_file_path):
-    return f'{spec_file_path.parent.name}/{spec_file_path.name}'
+def _description(spec_file_path, spec):
+    return spec.get('description') or spec_file_path.parent.name
+
+
+def _metadata(spec_file_path, spec):
+
+    metadata = spec.get('metadata') or {}
+
+    if not isinstance(metadata, dict):
+        raise LoadError(f'{_label(spec_file_path)}: metadata must be a mapping')
+
+    return metadata
+
+
+def _load_yaml(spec_file_path):
+
+    try:
+        raw = spec_file_path.read_text(encoding='utf-8')
+        spec = yaml.safe_load(_expand_env_vars(raw)) or {}
+
+    except (OSError, yaml.YAMLError, LoadError) as err:
+        raise LoadError(f'{_label(spec_file_path)}: {err}') from err
+
+    if not isinstance(spec, dict):
+        raise LoadError(f'{_label(spec_file_path)}: mapping expected')
+
+    return spec
 
 
 def _load_mcp_servers(mcp_config_file_path):
@@ -89,27 +131,12 @@ def _load_mcp_servers(mcp_config_file_path):
         raise LoadError(f'{_label(mcp_config_file_path)}: {err}') from err
 
 
-def _load_yaml(spec_file_path):
-
-    try:
-        raw = spec_file_path.read_text(encoding='utf-8')
-        return yaml.safe_load(_expand_env_vars(raw)) or {}
-
-    except (OSError, yaml.YAMLError, LoadError) as err:
-        raise LoadError(f'{_label(spec_file_path)}: {err}') from err
-
-
 def _load_local_spec(spec_file_path, *, allow_delegates):
 
     spec = _load_yaml(spec_file_path)
 
-    if not isinstance(spec, dict):
-        raise LoadError(f'{_label(spec_file_path)}: mapping expected')
-
-    metadata = spec.get('metadata', None) or {}
-
-    if not isinstance(metadata, dict):
-        raise LoadError(f'{_label(spec_file_path)}: metadata must be a mapping')
+    description = _description(spec_file_path, spec)
+    metadata = _metadata(spec_file_path, spec)
 
     delegates = metadata.get('delegates', [])
 
@@ -120,9 +147,13 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
     mcp_servers = _load_mcp_servers(
             spec_file_path.with_name('mcp_config.json'))
 
+    visibility = metadata.get('visibility', Visibility.PRIVATE)
+
     try:
-        return LocalSpec(
-                spec=spec, delegates=delegates, mcp_servers=mcp_servers)
+        return LocalSpec(spec=spec | {'description': description},
+                         visibility=visibility,
+                         delegates=delegates,
+                         mcp_servers=mcp_servers)
 
     except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
@@ -130,8 +161,16 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
 
 def _load_remote_spec(spec_file_path):
 
+    spec = _load_yaml(spec_file_path)
+
+    description = _description(spec_file_path, spec)
+    metadata = _metadata(spec_file_path, spec)
+
+    visibility = metadata.get('visibility', Visibility.PRIVATE)
+
     try:
-        return RemoteSpec.model_validate(_load_yaml(spec_file_path))
+        return RemoteSpec.model_validate(spec | {'description': description,
+                                                 'visibility': visibility})
 
     except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
@@ -171,11 +210,18 @@ def load_specs(agents_dir):
             errors.append(str(err))
             continue
 
+    public = frozenset(k for k, v in (local_specs | remote_specs).items()
+                       if v.visibility is Visibility.PUBLIC)
+
+    specs = Specs(local_specs, remote_specs, public)
+
     if errors:
         raise LoadError(f'invalid agent configuration:{_bullets(errors)}')
 
-    if errors := _check_delegates(local_specs, remote_specs):
-        raise LoadError(f'invalid agent configuration:{_bullets(errors)}')
+    for v in (_check_delegates, _check_visibility):
 
-    return local_specs, remote_specs
+        if errors := v(specs):
+            raise LoadError(f'invalid agent configuration:{_bullets(errors)}')
+
+    return specs
 

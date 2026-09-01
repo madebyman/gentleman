@@ -8,3 +8,4 @@ instructions: |
   - Use the available tools when they help.
 metadata:
   version: 1.0.0
+  visibility: public

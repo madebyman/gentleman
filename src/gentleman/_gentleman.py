@@ -16,7 +16,7 @@ from ._errors import LifecycleError
 
 __all__ = ['create_gentleman', 'Readiness']
 
-_PORTS = frozenset({'agui', 'a2a',  'mcp'})
+_ports = frozenset({'agui', 'a2a',  'mcp'})
 
 
 class Readiness(BaseModel):
@@ -56,14 +56,15 @@ class _Gentleman:
         self._max_hop = remote_settings.max_hop
 
         # load
-        self._local_specs, self._remote_specs = loader.load_specs(
-                self._agents_dir)
+        self._specs = loader.load_specs(self._agents_dir)
 
         # build
         base_url = f'{self._app_origin}{self._app_prefix}{a2a_path_prefix}'
 
-        self._agents = builder.build_agents(
-                self._local_specs, self._remote_specs, base_url=base_url)
+        self._agents = builder.build_agents(self._specs, base_url=base_url)
+
+        self._public_agents = {k: v for k, v in self._agents.items()
+                               if k in self._specs.public}
 
         self._default_expose = app_settings.expose
         self._expose = None
@@ -88,12 +89,12 @@ class _Gentleman:
 
     def readiness(self):
         reason = ('not serving'if not self._serving else
-                  'no agents' if not self._agents else
+                  'no agents' if not self._public_agents else
                   None)
 
         return Readiness(name=self._app_name,
                          ready=reason is None,
-                         agents=len(self._agents),
+                         agents=len(self._public_agents),
                          reason=reason)
 
     @asynccontextmanager
@@ -132,9 +133,9 @@ class _Gentleman:
             raise LifecycleError('gentleman: already attached')
 
         p = (frozenset(expose) if expose is not None
-                 else self._default_expose or _PORTS)
+                 else self._default_expose or _ports)
 
-        if unknown := p - _PORTS:
+        if unknown := p - _ports:
             raise ValueError(f'gentleman: unknown port(s): {sorted(unknown)}')
 
         self._expose = p
@@ -146,14 +147,14 @@ class _Gentleman:
                 k: v for k, v in routers.items() if k in self._expose}
 
         for k, v in filtered_routers.items():
-            app.include_router(v(self._agents, max_hop=self._max_hop),
+            app.include_router(v(self._public_agents, max_hop=self._max_hop),
                                prefix=self._app_prefix)
 
         # mcp
         if 'mcp' not in self._expose:
             return app
 
-        self._mcp = create_mcp(self._agents, app_name=self._app_name)
+        self._mcp = create_mcp(self._public_agents, app_name=self._app_name)
 
         app.mount(f'{self._app_prefix}/mcp',
                   hop.Guard(self._mcp.app, self._max_hop))
@@ -166,5 +167,4 @@ def create_gentleman(
 
     return _Gentleman(
             agents_dir, name=name, origin=origin, prefix=prefix)
-
 
