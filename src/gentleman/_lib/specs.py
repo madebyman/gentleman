@@ -45,23 +45,33 @@ class LocalSpec(BaseModel):
 
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
+    visibility: Visibility = Visibility.PRIVATE
+
     spec: AgentSpec
     delegates: list[str] = Field(default_factory=list)
-    visibility: Visibility = Visibility.PRIVATE
     mcp_servers: dict[str, StdioServer | HttpServer] = Field(
             default_factory=dict)
+
+    @property
+    def description(self):
+        return self.spec.description
+
+    @property
+    def metadata(self):
+        return self.spec.metadata or {}
 
 
 class RemoteSpec(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
+    visibility: Visibility = Visibility.PRIVATE
+    description: str
+    metadata: dict = {}
+
     url: HttpUrl
-    description: str | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     timeout: float = Field(default=60.0, gt=0)
-    visibility: Visibility = Visibility.PRIVATE
-    metadata: dict = {}
 
 
 class Specs(NamedTuple):
@@ -70,6 +80,6 @@ class Specs(NamedTuple):
     public: frozenset[str]
 
     @property
-    def keys(self):
+    def names(self):
         return self.local.keys() | self.remote.keys()
 

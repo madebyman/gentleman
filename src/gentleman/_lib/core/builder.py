@@ -43,14 +43,11 @@ def _build_toolset(name, entry):
     return PrefixedToolset(toolset, name)
 
 
-def _build_agent_card(name, spec, base_url):
-
-    description = spec.description or name
+def _build_agent_card(name, *, description, metadata, base_url):
 
     skill_id = f'ask_{name}'
     url = f'{base_url}/{name}'
 
-    metadata = spec.metadata or {}
     agent_version = metadata.get('version', 'unknown')
 
     skill = AgentSkill(id=skill_id,
@@ -74,40 +71,51 @@ def _build_agent_card(name, spec, base_url):
                      supported_interfaces=[supported_interface])
 
 
-def build_agents(spec, *, base_url):
+def build_agents(specs, *, base_url):
 
     local_agents, remote_agents = {}, {}
 
-    for k, v in spec.remote.items():
-        remote_agents[k] = RemoteAgent.from_spec(
-                v, _build_agent_card(k, v, base_url), name=k)
+    # remote_agents
+    for k, v in specs.remote.items():
 
-    def build(key):
+        agent_card = _build_agent_card(k,
+                                       description=v.description,
+                                       metadata=v.metadata,
+                                       base_url=base_url)
 
-        if key in local_agents:
-            return local_agents[key]
+        remote_agents[k] = RemoteAgent.from_spec(v, agent_card, name=k)
 
-        agent_spec = spec.local[key]
+    # local_agents
+    def build(name):
+
+        if name in local_agents:
+            return local_agents[name]
+
+        local_spec = specs.local[name]
 
         tools = [make_tool(k, build(k)
-                           if k in spec.local else remote_agents[k])
-                 for k in agent_spec.delegates]
+                           if k in specs.local else remote_agents[k])
+                 for k in local_spec.delegates]
 
         toolsets = [_build_toolset(k, v)
-                    for k, v in agent_spec.mcp_servers.items()]
+                    for k, v in local_spec.mcp_servers.items()]
 
-        agent = Agent.from_spec(agent_spec.spec,
-                                name=key,
+        agent = Agent.from_spec(local_spec.spec,
+                                name=name,
                                 tools=tools,
                                 toolsets=toolsets,
                                 output_type=_output_type)
 
-        local_agents[key] = LocalAgent(
-                agent, _build_agent_card(key, agent_spec.spec, base_url))
+        agent_card = _build_agent_card(name,
+                                       description=local_spec.description,
+                                       metadata=local_spec.metadata,
+                                       base_url=base_url)
 
-        return local_agents[key]
+        local_agents[name] = LocalAgent(agent, agent_card)
 
-    for k in spec.local:
+        return local_agents[name]
+
+    for k in specs.local:
         build(k)
 
     return local_agents | remote_agents

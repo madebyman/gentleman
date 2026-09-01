@@ -18,7 +18,7 @@ Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans.
 Run without installing, using [uv](https://docs.astral.sh/uv/):
 
 ```sh
-uvx --from gentleman-agents gentleman init my-agents
+uvx --from gentleman-agents gentleman init my-gentleman
 ```
 
 `gentleman init` scaffolds a project into the given directory, creating it if it

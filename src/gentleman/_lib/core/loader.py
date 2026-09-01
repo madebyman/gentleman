@@ -29,9 +29,9 @@ def _check_delegates(specs):
     errors, visited = [], set()
 
     for k, v in specs.local.items():
-         
+
         for name in v.delegates:
-            if name not in specs.keys:
+            if name not in specs.names:
                 errors.append(f'{k}: unknown delegate "{name}"')
 
     def walk(name, trail):
@@ -62,7 +62,7 @@ def _check_visibility(specs):
 
     return [f'unreachable agent "{v}": private and not listed in '
             'any metadata.delegates'
-            for v in sorted((specs.keys) - reachable)]
+            for v in sorted(specs.names - reachable)]
 
 
 def _bullets(errors):
@@ -89,17 +89,33 @@ def _expand_env_vars(text):
     return re.compile(r'\$\{([^}:]+)(?::-([^}]*))?\}').sub(repl, text)
 
 
+def _description(spec_file_path, spec):
+    return spec.get('description') or spec_file_path.parent.name
+
+
 def _metadata(spec_file_path, spec):
 
-    if not isinstance(spec, dict):
-        raise LoadError(f'{_label(spec_file_path)}: mapping expected')
-
-    metadata = spec.get('metadata', None) or {}
+    metadata = spec.get('metadata') or {}
 
     if not isinstance(metadata, dict):
         raise LoadError(f'{_label(spec_file_path)}: metadata must be a mapping')
 
     return metadata
+
+
+def _load_yaml(spec_file_path):
+
+    try:
+        raw = spec_file_path.read_text(encoding='utf-8')
+        spec = yaml.safe_load(_expand_env_vars(raw)) or {}
+
+    except (OSError, yaml.YAMLError, LoadError) as err:
+        raise LoadError(f'{_label(spec_file_path)}: {err}') from err
+
+    if not isinstance(spec, dict):
+        raise LoadError(f'{_label(spec_file_path)}: mapping expected')
+
+    return spec
 
 
 def _load_mcp_servers(mcp_config_file_path):
@@ -115,19 +131,11 @@ def _load_mcp_servers(mcp_config_file_path):
         raise LoadError(f'{_label(mcp_config_file_path)}: {err}') from err
 
 
-def _load_yaml(spec_file_path):
-
-    try:
-        raw = spec_file_path.read_text(encoding='utf-8')
-        return yaml.safe_load(_expand_env_vars(raw)) or {}
-
-    except (OSError, yaml.YAMLError, LoadError) as err:
-        raise LoadError(f'{_label(spec_file_path)}: {err}') from err
-
-
 def _load_local_spec(spec_file_path, *, allow_delegates):
 
     spec = _load_yaml(spec_file_path)
+
+    description = _description(spec_file_path, spec)
     metadata = _metadata(spec_file_path, spec)
 
     delegates = metadata.get('delegates', [])
@@ -142,7 +150,7 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
     visibility = metadata.get('visibility', Visibility.PRIVATE)
 
     try:
-        return LocalSpec(spec=spec,
+        return LocalSpec(spec=spec | {'description': description},
                          visibility=visibility,
                          delegates=delegates,
                          mcp_servers=mcp_servers)
@@ -154,12 +162,15 @@ def _load_local_spec(spec_file_path, *, allow_delegates):
 def _load_remote_spec(spec_file_path):
 
     spec = _load_yaml(spec_file_path)
+
+    description = _description(spec_file_path, spec)
     metadata = _metadata(spec_file_path, spec)
 
     visibility = metadata.get('visibility', Visibility.PRIVATE)
 
     try:
-        return RemoteSpec.model_validate(spec | {'visibility': visibility})
+        return RemoteSpec.model_validate(spec | {'description': description,
+                                                 'visibility': visibility})
 
     except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
