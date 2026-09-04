@@ -10,6 +10,8 @@ from importlib.resources import files, as_file
 
 import uvicorn
 
+from .._version import __version__
+
 dist_name = 'gentleman-agents'
 
 def init(dest_dir, *args, **kwargs):
@@ -89,12 +91,15 @@ def main():
         'run': {'cmd': run , 'args': None},
 
         'init': {'cmd': init, 'args': ['dir', {'nargs': '?', 'default': '.'}]},
-        'chat': {'cmd': chat, 'args': ['url', {}]},
-    }
+        'chat': {'cmd': chat, 'args': ['url', {}]}}
 
     # parser
     parser = argparse.ArgumentParser(
             prog='gentleman', description='gentleman cli')
+
+    parser.add_argument('-v', '--version',
+                        action='version',
+                        version=f'%(prog)s {__version__}')
 
     sub = parser.add_subparsers(dest='cmd', required=True)
 
