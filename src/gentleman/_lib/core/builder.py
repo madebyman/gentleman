@@ -95,7 +95,7 @@ def build_agents(specs, *, base_url):
 
         tools = [make_tool(k, build(k)
                            if k in specs.local else remote_agents[k])
-                 for k in local_spec.delegates]
+                 for k in local_spec.routing.delegates]
 
         toolsets = [_build_toolset(k, v)
                     for k, v in local_spec.mcp_servers.items()]

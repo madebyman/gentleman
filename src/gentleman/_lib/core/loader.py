@@ -4,13 +4,15 @@ import yaml
 
 from pydantic import ValidationError
 
-from ..specs import Visibility, McpConfig, LocalSpec, RemoteSpec, Specs
+from ..specs import (Visibility, McpConfig, LocalRouting, RemoteRouting, 
+                     LocalSpec, RemoteSpec, Specs)
+
 from ..._errors import LoadError
 
 
 def _check_exclusive(agent_dir):
 
-    files = [v for v in ('conductor.yaml', 'agent.yaml', 'a2a.yaml')
+    files = [v for v in ('agent.yaml', 'a2a.yaml')
              if (agent_dir / v).exists()]
 
     if len(files) > 1:
@@ -30,7 +32,7 @@ def _check_delegates(specs):
 
     for k, v in specs.local.items():
 
-        for name in v.delegates:
+        for name in v.routing.delegates:
             if name not in specs.names:
                 errors.append(f'{k}: unknown delegate "{name}"')
 
@@ -42,7 +44,8 @@ def _check_delegates(specs):
             return []
 
         visited.add(name)
-        return [err for v in specs.local[name].delegates if v in specs.local
+        return [err for v in specs.local[name].routing.delegates
+                    if v in specs.local
                     for err in walk(v, (*trail, name))]
 
     for v in specs.local:
@@ -51,22 +54,31 @@ def _check_delegates(specs):
     return errors
 
 
-def _check_visibility(specs):
+def _check_reachability(specs):
 
     if not specs.public:
-        return ['no public agents: add "visibility: public" to the metadata '
+        return ['no public agents: add "visibility: public" under "routing:" '
                 'of at least one agent']
 
-    reachable = specs.public.union(
-            *(v.delegates for v in specs.local.values()))
+    reachable, stack = set(), list(specs.public)
 
-    return [f'unreachable agent "{v}": private and not listed in '
-            'any metadata.delegates'
+    while stack:
+
+        if (name := stack.pop()) in reachable:
+            continue
+
+        reachable.add(name)
+
+        if (v := specs.local.get(name)) is not None:
+            stack.extend(v.routing.delegates)
+
+    return [f'unreachable agent "{v}": private and not reachable from '
+            'any public agent'
             for v in sorted(specs.names - reachable)]
 
 
 def _bullets(errors):
-    return '\n  - ' + '\n  - '.join(errors)
+    return '\n  - ' + '\n  - '.join(v.replace('\n', '\n    ') for v in errors)
 
 
 def _label(spec_file_path):
@@ -93,14 +105,18 @@ def _description(spec_file_path, spec):
     return spec.get('description') or spec_file_path.parent.name
 
 
-def _metadata(spec_file_path, spec):
+def _routing(spec_file_path, spec, model):
 
-    metadata = spec.get('metadata') or {}
+    routing = spec.pop('routing', None) or {}
 
-    if not isinstance(metadata, dict):
-        raise LoadError(f'{_label(spec_file_path)}: metadata must be a mapping')
+    if not isinstance(routing, dict):
+        raise LoadError(f'{_label(spec_file_path)}: routing must be a mapping')
 
-    return metadata
+    try:
+        return model.model_validate(routing)
+
+    except (ValidationError) as err:
+        raise LoadError(f'{_label(spec_file_path)}: {err}') from err
 
 
 def _load_yaml(spec_file_path):
@@ -131,28 +147,19 @@ def _load_mcp_servers(mcp_config_file_path):
         raise LoadError(f'{_label(mcp_config_file_path)}: {err}') from err
 
 
-def _load_local_spec(spec_file_path, *, allow_delegates):
+def _load_local_spec(spec_file_path):
 
     spec = _load_yaml(spec_file_path)
 
     description = _description(spec_file_path, spec)
-    metadata = _metadata(spec_file_path, spec)
-
-    delegates = metadata.get('delegates', [])
-
-    if delegates and not allow_delegates:
-        raise LoadError(f'{_label(spec_file_path)}: '
-                        'metadata.delegates is only allowed in conductor.yaml')
+    routing = _routing(spec_file_path, spec, LocalRouting)
 
     mcp_servers = _load_mcp_servers(
             spec_file_path.with_name('mcp_config.json'))
 
-    visibility = metadata.get('visibility', Visibility.PRIVATE)
-
     try:
         return LocalSpec(spec=spec | {'description': description},
-                         visibility=visibility,
-                         delegates=delegates,
+                         routing=routing,
                          mcp_servers=mcp_servers)
 
     except (ValidationError) as err:
@@ -164,13 +171,11 @@ def _load_remote_spec(spec_file_path):
     spec = _load_yaml(spec_file_path)
 
     description = _description(spec_file_path, spec)
-    metadata = _metadata(spec_file_path, spec)
-
-    visibility = metadata.get('visibility', Visibility.PRIVATE)
+    routing = _routing(spec_file_path, spec, RemoteRouting)
 
     try:
         return RemoteSpec.model_validate(spec | {'description': description,
-                                                 'visibility': visibility})
+                                                 'routing': routing})
 
     except (ValidationError) as err:
         raise LoadError(f'{_label(spec_file_path)}: {err}') from err
@@ -196,12 +201,8 @@ def load_specs(agents_dir):
             continue
 
         try:
-
-            if (f := v / 'conductor.yaml').exists():
-                local_specs[v.name] = _load_local_spec(f, allow_delegates=True)
-
-            elif (f := v / 'agent.yaml').exists():
-                local_specs[v.name] = _load_local_spec(f, allow_delegates=False)
+            if (f := v / 'agent.yaml').exists():
+                local_specs[v.name] = _load_local_spec(f)
 
             elif (f := v / 'a2a.yaml').exists():
                 remote_specs[v.name] = _load_remote_spec(f)
@@ -211,14 +212,14 @@ def load_specs(agents_dir):
             continue
 
     public = frozenset(k for k, v in (local_specs | remote_specs).items()
-                       if v.visibility is Visibility.PUBLIC)
+                       if v.routing.visibility is Visibility.PUBLIC)
 
     specs = Specs(local_specs, remote_specs, public)
 
     if errors:
         raise LoadError(f'invalid agent configuration:{_bullets(errors)}')
 
-    for v in (_check_delegates, _check_visibility):
+    for v in (_check_delegates, _check_reachability):
 
         if errors := v(specs):
             raise LoadError(f'invalid agent configuration:{_bullets(errors)}')

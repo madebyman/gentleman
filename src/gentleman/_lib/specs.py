@@ -7,11 +7,28 @@ from pydantic.alias_generators import to_camel
 from pydantic_ai import AgentSpec
 
 
+# routing
 class Visibility(StrEnum):
     PUBLIC = 'public'
     PRIVATE = 'private'
 
 
+class _Routing(BaseModel):
+
+    model_config = ConfigDict(extra='forbid')
+
+    visibility: Visibility = Visibility.PRIVATE
+
+
+class LocalRouting(_Routing):
+    delegates: list[str] = Field(default_factory=list)
+
+
+class RemoteRouting(_Routing):
+    pass
+
+
+# mcp
 class _McpServer(BaseModel):
 
     model_config = ConfigDict(extra='forbid',
@@ -41,16 +58,17 @@ class McpConfig(BaseModel):
     mcp_servers: dict[str, StdioServer | HttpServer] = {}
 
 
+# spec
 class LocalSpec(BaseModel):
 
     model_config = ConfigDict(extra='forbid', arbitrary_types_allowed=True)
 
-    visibility: Visibility = Visibility.PRIVATE
+    routing: LocalRouting = Field(default_factory=LocalRouting)
 
-    spec: AgentSpec
-    delegates: list[str] = Field(default_factory=list)
     mcp_servers: dict[str, StdioServer | HttpServer] = Field(
             default_factory=dict)
+
+    spec: AgentSpec
 
     @property
     def description(self):
@@ -65,7 +83,8 @@ class RemoteSpec(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    visibility: Visibility = Visibility.PRIVATE
+    routing: RemoteRouting = Field(default_factory=RemoteRouting)
+
     description: str
     metadata: dict = {}
 
