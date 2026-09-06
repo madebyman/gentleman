@@ -1,8 +1,13 @@
 model: anthropic:claude-sonnet-4-6
 description: A helpful assistant.
+
+routing:
+  visibility: public
+  delegates: []
+
 metadata:
   version: 1.0.0
-  visibility: public
+
 instructions: |
   You are a helpful assistant.
 

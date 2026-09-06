@@ -12,7 +12,9 @@ import uvicorn
 
 from .._version import __version__
 
+
 dist_name = 'gentleman-agents'
+
 
 def init(dest_dir, *args, **kwargs):
 
@@ -87,11 +89,20 @@ def chat(*args, **kwargs):
 def main():
 
     commands = {
-        'dev': {'cmd': dev , 'args': None},
-        'run': {'cmd': run , 'args': None},
+        'dev': {'cmd': dev , 'args': None,
+                'help': 'Run the server locally with auto-reload '
+                         '(127.0.0.1:8000).'},
 
-        'init': {'cmd': init, 'args': ['dir', {'nargs': '?', 'default': '.'}]},
-        'chat': {'cmd': chat, 'args': ['url', {}]}}
+        'run': {'cmd': run , 'args': None,
+                'help': 'Run the server (0.0.0.0:8000).'},
+
+        'init': {'cmd': init, 'args': ['dir', {'nargs': '?', 'default': '.'}],
+                 'help': 'Scaffold a new project into DIR '
+                         '(default: current directory).'},
+
+        'chat': {'cmd': chat, 'args': ['url', {}],
+                 'help': 'Talk to an agent over AG-UI. '
+                         'Reads stdin when piped.'}}
 
     # parser
     parser = argparse.ArgumentParser(
@@ -101,10 +112,11 @@ def main():
                         action='version',
                         version=f'%(prog)s {__version__}')
 
-    sub = parser.add_subparsers(dest='cmd', required=True)
+    sub = parser.add_subparsers(dest='cmd', metavar='<command>')
 
     for k, v in commands.items():
-        parser_command = sub.add_parser(k)
+        parser_command = sub.add_parser(
+                k, description=v['help'], help=v['help'])
 
         if v['args'] is None:
             continue
@@ -114,9 +126,12 @@ def main():
 
     args = parser.parse_args()
 
+    if args.cmd is None:
+        parser.print_help(sys.stderr)
+        return 2
+
     command = commands[args.cmd]
 
     command['cmd'](getattr(args, command['args'][0]) 
             if command['args'] else None)
-
 
