@@ -1,13 +1,32 @@
 import os
 import re
 import yaml
+import logging
 
 from pydantic import ValidationError
 
 from ..specs import (Visibility, McpConfig, LocalRouting, RemoteRouting, 
                      LocalSpec, RemoteSpec, Specs)
 
+from ..model import BUILTIN_MODELS, BUILTIN_PREFIX
 from ..._errors import LoadError
+
+
+logger = logging.getLogger(__name__)
+
+
+def _check_model(spec_file_path, spec):
+
+    model = spec.model
+
+    if model is None or not model.startswith(BUILTIN_PREFIX):
+        return
+    if model not in BUILTIN_MODELS:
+        raise LoadError(f'{_label(spec_file_path)}: unknown built-in model "{model}" '
+                        f'(available: {", ".join(sorted(BUILTIN_MODELS))})')
+
+    logger.warning('gentleman: %s: uses built-in model "%s" (not an LLM)',
+                   _label(spec_file_path), model)
 
 
 def _check_exclusive(agent_dir):
@@ -203,6 +222,7 @@ def load_specs(agents_dir):
         try:
             if (f := v / 'agent.yaml').exists():
                 local_specs[v.name] = _load_local_spec(f)
+                _check_model(f, local_specs[v.name].spec)
 
             elif (f := v / 'a2a.yaml').exists():
                 remote_specs[v.name] = _load_remote_spec(f)

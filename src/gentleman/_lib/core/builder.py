@@ -9,7 +9,7 @@ from pydantic_ai.toolsets import PrefixedToolset
 from ..agent import LocalAgent, RemoteAgent
 from ..ask import make_tool
 from ..specs import StdioServer
-
+from ..model import resolve_model
 
 _output_type = [str, DeferredToolRequests]
 _init_timeout = 30.0
@@ -102,6 +102,7 @@ def build_agents(specs, *, base_url):
 
         agent = Agent.from_spec(local_spec.spec,
                                 name=name,
+                                model=resolve_model(local_spec.spec.model),
                                 tools=tools,
                                 toolsets=toolsets,
                                 output_type=_output_type)

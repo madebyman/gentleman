@@ -1,4 +1,4 @@
-model: anthropic:claude-sonnet-4-6
+model: gentleman:echo
 description: A helpful assistant.
 
 routing:
