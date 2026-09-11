@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gentleman.fullname" . }}
+  labels:
+    {{- include "gentleman.labels" . | nindent 4 }}
+
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+
+  selector:
+    matchLabels:
+      {{- include "gentleman.selectorLabels" . | nindent 6 }}
+
+  template:
+    metadata:
+      annotations:
+        checksum/agents: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "gentleman.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+
+          env:
+          - name: GENTLEMAN_APP_AGENTS_DIR
+            value: {{ .Values.agentsMountPath | quote }}
+          {{- with .Values.env }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+
+          {{- if or .Values.secrets.existingSecret .Values.secrets.data }}
+          envFrom:
+          - secretRef:
+              name: {{ include "gentleman.secretName" . }}
+          {{- end }}
+
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          volumeMounts:
+          - name: agents
+            mountPath: {{ .Values.agentsMountPath }}
+            readOnly: true
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+
+      {{- if or .Values.agents .Values.agentsExistingConfigMap }}
+      volumes:
+      - name: agents
+        configMap:
+          name: {{ include "gentleman.agentsConfigMapName" . }}
+          {{- if not .Values.agentsExistingConfigMap }}
+          items:
+          {{- range $path, $_ := .Values.agents }}
+          - key: {{ include "gentleman.agentKey" $path }}
+            path: {{ $path }}
+          {{- end }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

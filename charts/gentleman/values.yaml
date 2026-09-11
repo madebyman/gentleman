@@ -1,0 +1,100 @@
+# Deployment
+replicaCount: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+image:
+  repository: ghcr.io/madebyman/gentleman
+  pullPolicy: IfNotPresent
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+## pod
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+## env
+env:
+- name: AWS_DEFAULT_REGION
+  value: "us-east-1"
+- name: GENTLEMAN_APP_ORIGIN
+  value: ""
+- name: GENTLEMAN_CORS_ALLOW_ORIGINS
+  value: "[]"
+- name: GENTLEMAN_REMOTE_MAX_HOP
+  value: "8"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+
+#resources: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+extraVolumeMounts: []
+extraVolumes: []
+
+nodeSelector: {}
+
+affinity: {}
+
+tolerations: []
+
+# Secret
+secrets:
+  existingSecret: ""
+
+  create: false
+  data: {}
+
+# Service
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+
+# agents
+agentsMountPath: /app/agents
+agentsExistingConfigMap: ""
+
+agents:
+  example/agent.yaml:
+    model: bedrock:global.anthropic.claude-sonnet-4-6
+    description: A helpful assistant.
+    metadata:
+      version: 1.0.0
+      visibility: public
+    instructions: |
+      You are a helpful assistant.
+
+      - Answer the user's questions clearly and concisely.
+      - If you are unsure, say so instead of guessing.
+      - Use the available tools when they help.
+

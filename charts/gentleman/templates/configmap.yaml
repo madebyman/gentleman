@@ -1,0 +1,14 @@
+{{- if and .Values.agents (not .Values.agentsExistingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gentleman.fullname" . }}-agents
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gentleman.labels" . | nindent 4 }}
+data:
+{{- range $path, $spec := .Values.agents }}
+  {{ include "gentleman.agentKey" $path }}: |
+{{ toYaml $spec | indent 4 }}
+{{- end }}
+{{- end }}
