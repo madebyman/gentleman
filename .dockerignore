@@ -3,3 +3,6 @@
 .git
 .venv
 .env
+
+charts/
+docs/

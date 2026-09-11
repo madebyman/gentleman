@@ -1,0 +1,47 @@
+gentleman {{ .Chart.AppVersion }} has been deployed.
+
+{{- if contains "NodePort" .Values.service.type }}
+
+  Get the application URL:
+
+    export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "gentleman.fullname" . }})
+    export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+    echo http://$NODE_IP:$NODE_PORT
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+  It may take a few minutes for the LoadBalancer IP to become available.
+  Watch its status with:
+
+    kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "gentleman.fullname" . }}
+
+{{- else }}
+
+  Forward a local port to the service:
+
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "gentleman.fullname" . }} 8080:{{ .Values.service.port }}
+
+  Then the interfaces are available at:
+
+    AG-UI : http://localhost:8080/agui
+    A2A   : http://localhost:8080/a2a
+    MCP   : http://localhost:8080/mcp
+
+{{- end }}
+
+In-cluster address:
+
+  http://{{ include "gentleman.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+Agents loaded from {{ .Values.agentsMountPath }}:
+{{- range $path, $_ := .Values.agents }}
+  - {{ $path }}
+{{- end }}
+{{- if .Values.agentsExistingConfigMap }}
+  (from existing ConfigMap: {{ .Values.agentsExistingConfigMap }})
+{{- end }}
+
+Check the deployment:
+
+  kubectl --namespace {{ .Release.Namespace }} rollout status deploy/{{ include "gentleman.fullname" . }}
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
