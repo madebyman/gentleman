@@ -1,4 +1,5 @@
 # Deployment
+
 replicaCount: 1
 
 autoscaling:
@@ -10,12 +11,13 @@ autoscaling:
 image:
   repository: ghcr.io/madebyman/gentleman
   pullPolicy: IfNotPresent
-  tag: ""
+  tag: ''
 
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: ''
+fullnameOverride: ''
 
 ## pod
+
 podAnnotations: {}
 podLabels: {}
 
@@ -26,15 +28,18 @@ podSecurityContext:
   fsGroup: 1000
 
 ## env
+
+appOrigin: ""
+
 env:
-- name: AWS_DEFAULT_REGION
-  value: "us-east-1"
-- name: GENTLEMAN_APP_ORIGIN
-  value: ""
-- name: GENTLEMAN_CORS_ALLOW_ORIGINS
-  value: "[]"
-- name: GENTLEMAN_REMOTE_MAX_HOP
-  value: "8"
+  GENTLEMAN_APP_NAME: Gentleman
+  GENTLEMAN_APP_EXPOSE: '["agui","a2a","mcp"]'
+  GENTLEMAN_CORS_ALLOW_ORIGINS: '[]'
+  GENTLEMAN_REMOTE_MAX_HOP: '8'
+
+extraEnv: []
+
+## probe
 
 livenessProbe:
   httpGet:
@@ -48,7 +53,7 @@ readinessProbe:
     port: http
   initialDelaySeconds: 5
 
-#resources: {}
+## resources
 
 resources:
   requests:
@@ -56,6 +61,8 @@ resources:
     memory: 256Mi
   limits:
     memory: 512Mi
+
+## 
 
 extraVolumeMounts: []
 extraVolumes: []
@@ -67,30 +74,55 @@ affinity: {}
 tolerations: []
 
 # Secret
+
 secrets:
-  existingSecret: ""
+  existingSecret: ''
 
   create: false
   data: {}
 
 # Service
+
 service:
   type: ClusterIP
   port: 80
   targetPort: 8000
 
+# Ingress
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # Traefik — disable response buffering for SSE:
+  #   traefik.ingress.kubernetes.io/router.middlewares: <ns>-<middleware>@kubernetescrd
+  # AWS ALB — raise the idle timeout above 60s:
+  #   alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=300
+  hosts:
+  - host: localhost
+    paths:
+    - path: /
+      pathType: Prefix
+  tls: []
+  # - secretName: gentleman-tls
+  #   hosts:
+  #   - localhost
 
 # agents
+
 agentsMountPath: /app/agents
-agentsExistingConfigMap: ""
+
+agentsExistingConfigMap: ''
 
 agents:
   example/agent.yaml:
-    model: bedrock:global.anthropic.claude-sonnet-4-6
+    model: gentleman:echo
     description: A helpful assistant.
+    routing:
+      visibility: public
+      delegates: []
     metadata:
       version: 1.0.0
-      visibility: public
     instructions: |
       You are a helpful assistant.
 

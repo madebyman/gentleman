@@ -1,0 +1,100 @@
+name: chart
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Target OCI repository'
+        type: choice
+        options:
+          - sandbox
+          - charts
+        default: sandbox
+      version:
+        description: 'Chart version (blank = use Chart.yaml)'
+        required: false
+        default: ''
+      push:
+        description: 'Push to ghcr (unchecked = package and inspect only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CHART_DIR: charts/gentleman
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+
+      - name: resolve version
+        run: |
+          CHART_VERSION=$(helm show chart "$CHART_DIR" | awk '/^version:/{print $2}')
+          APP_VERSION=$(helm show chart "$CHART_DIR" | awk '/^appVersion:/{print $2}' | tr -d '"')
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION:-$CHART_VERSION}"
+
+          echo "VERSION=$VERSION"         >> "$GITHUB_ENV"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+          {
+            echo "| | |"
+            echo "|---|---|"
+            echo "| chart version | \`$VERSION\` |"
+            echo "| appVersion | \`$APP_VERSION\` |"
+            echo "| target | \`oci://ghcr.io/${{ github.repository_owner }}/${{ inputs.repository }}\` |"
+            echo "| push | \`${{ inputs.push }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: verify image exists
+        run: |
+          TOKEN=$(curl -sf -u "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
+            "https://ghcr.io/token?scope=repository:${{ github.repository }}:pull" | jq -r .token)
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/${{ github.repository }}/manifests/$APP_VERSION")
+
+          if [ "$CODE" != "200" ]; then
+            echo "::error file=$CHART_DIR/Chart.yaml::appVersion $APP_VERSION has no image on ghcr (HTTP $CODE) - run the publish workflow first"
+            exit 1
+          fi
+
+      - run: helm lint "$CHART_DIR"
+
+      - name: render
+        run: |
+          helm template gentleman "$CHART_DIR" > /dev/null
+          helm template gentleman "$CHART_DIR" --set secrets.existingSecret=x > /dev/null
+
+      - name: package
+        run: helm package "$CHART_DIR" --version "$VERSION" -d dist
+
+      - name: inspect
+        run: |
+          echo '--- files in the package'
+          tar tzf "dist/gentleman-$VERSION.tgz"
+          echo '--- renders from the package'
+          helm template gentleman "dist/gentleman-$VERSION.tgz" > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chart
+          path: dist/
+
+      - name: push
+        if: inputs.push
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          helm push "dist/gentleman-$VERSION.tgz" \
+            "oci://ghcr.io/${{ github.repository_owner }}/${{ inputs.repository }}"
