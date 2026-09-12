@@ -19,13 +19,13 @@ gentleman {{ .Chart.AppVersion }} has been deployed.
 
   Forward a local port to the service:
 
-    kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "gentleman.fullname" . }} 8080:{{ .Values.service.port }}
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "gentleman.fullname" . }} 8000:{{ .Values.service.port }}
 
   Then the interfaces are available at:
 
-    AG-UI : http://localhost:8080/agui
-    A2A   : http://localhost:8080/a2a
-    MCP   : http://localhost:8080/mcp
+    AG-UI : {{ include "gentleman.appOrigin" . }}/agui
+    A2A   : {{ include "gentleman.appOrigin" . }}/a2a
+    MCP   : {{ include "gentleman.appOrigin" . }}/mcp
 
 {{- end }}
 

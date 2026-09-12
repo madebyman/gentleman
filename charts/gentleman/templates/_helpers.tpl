@@ -62,13 +62,29 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{/* appOrigin */}}
+
+{{- define "gentleman.appOrigin" -}}
+{{- if .Values.appOrigin -}}
+{{- .Values.appOrigin -}}
+{{- else if and .Values.ingress.enabled .Values.ingress.hosts -}}
+{{- $host := (first .Values.ingress.hosts).host -}}
+{{- if .Values.ingress.tls -}}
+{{- printf "https://%s" $host -}}
+{{- else -}}
+{{- printf "http://%s" $host -}}
+{{- end -}}
+{{- else -}}
+http://localhost:8080
+{{- end -}}
+{{- end -}}
+
 
 {{/* path -> ConfigMap key */}}
 
 {{- define "gentleman.agentKey" -}}
 {{- . | replace "/" "__" -}}
 {{- end -}}
-
 
 {{/* agentsConfigMapName */}}
 

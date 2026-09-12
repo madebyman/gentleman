@@ -47,7 +47,13 @@ spec:
           env:
           - name: GENTLEMAN_APP_AGENTS_DIR
             value: {{ .Values.agentsMountPath | quote }}
-          {{- with .Values.env }}
+          - name: GENTLEMAN_APP_ORIGIN
+            value: {{ include "gentleman.appOrigin" . | quote }}
+          {{- range $k, $v := .Values.env }}
+          - name: {{ $k }}
+            value: {{ $v | quote }}
+          {{- end }}
+          {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
 
