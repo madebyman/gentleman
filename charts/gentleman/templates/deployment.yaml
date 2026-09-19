@@ -32,6 +32,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "gentleman.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}

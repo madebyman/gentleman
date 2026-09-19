@@ -91,3 +91,13 @@ http://localhost:8080
 {{- define "gentleman.agentsConfigMapName" -}}
 {{- .Values.agentsExistingConfigMap | default (printf "%s-agents" (include "gentleman.fullname" .)) -}}
 {{- end -}}
+
+{{/* serviceAccountName */}}
+
+{{- define "gentleman.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "gentleman.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
