@@ -108,6 +108,14 @@ ingress:
   #   hosts:
   #   - localhost
 
+# ServiceAccount
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: "gentleman"
+
 # agents
 
 agentsMountPath: /app/agents

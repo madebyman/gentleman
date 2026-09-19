@@ -15,7 +15,7 @@ services:
       GENTLEMAN_CORS_ALLOW_ORIGINS:
 
       # --- Anthropic ---
-      ANTHROPIC_API_KEY:
+      # ANTHROPIC_API_KEY:
 
       # --- OpenAI ---
       # OPENAI_API_KEY:

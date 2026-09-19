@@ -2,5 +2,5 @@ apiVersion: v2
 name: gentleman
 description: Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans
 type: application
-version: 0.1.0
-appVersion: "0.4.0"
+version: 0.1.1
+appVersion: "0.3.1"
