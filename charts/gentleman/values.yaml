@@ -108,6 +108,24 @@ ingress:
   #   hosts:
   #   - localhost
 
+# HTTPRoute
+
+httpRoute:
+  enabled: false
+  annotations: {}
+
+  parentRefs:
+    - name: gateway
+      sectionName: http
+
+  hostnames: []
+
+  path: /
+  pathType: PathPrefix
+
+  rules: []
+
+
 # ServiceAccount
 
 serviceAccount:
