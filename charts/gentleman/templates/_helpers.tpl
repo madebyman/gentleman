@@ -75,7 +75,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "http://%s" $host -}}
 {{- end -}}
 {{- else -}}
-http://localhost:8080
+http://localhost:8000
 {{- end -}}
 {{- end -}}
 

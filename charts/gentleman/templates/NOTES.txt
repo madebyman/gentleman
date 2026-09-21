@@ -1,4 +1,5 @@
-gentleman {{ .Chart.AppVersion }} has been deployed.
+{{- $agents := .Values.agents | default .Values.defaultAgents -}}
+gentleman {{ .Values.image.tag | default .Chart.AppVersion }} has been deployed.
 
 {{- if contains "NodePort" .Values.service.type }}
 
@@ -23,10 +24,26 @@ gentleman {{ .Chart.AppVersion }} has been deployed.
 
   Then the interfaces are available at:
 
-    AG-UI : {{ include "gentleman.appOrigin" . }}/agui
-    A2A   : {{ include "gentleman.appOrigin" . }}/a2a
-    MCP   : {{ include "gentleman.appOrigin" . }}/mcp
+    AG-UI : http://localhost:8000/agui
+    A2A   : http://localhost:8000/a2a
+    MCP   : http://localhost:8000/mcp
 
+{{- end }}
+
+{{- if or .Values.appOrigin .Values.ingress.enabled .Values.httpRoute.enabled }}
+
+Public origin:
+
+  {{ include "gentleman.appOrigin" . }}
+
+{{- if and .Values.httpRoute.enabled (not .Values.appOrigin) (not .Values.ingress.enabled) }}
+
+WARNING: httpRoute is enabled but appOrigin is not set.
+
+  gentleman advertises {{ include "gentleman.appOrigin" . }} to its clients.
+  Set appOrigin to the public URL of the route.
+
+{{- end }}
 {{- end }}
 
 {{- if and .Values.ingress.enabled .Values.httpRoute.enabled }}
@@ -42,12 +59,27 @@ In-cluster address:
 
   http://{{ include "gentleman.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
 
+{{- if .Values.agentsExistingConfigMap }}
+
+Agents loaded from ConfigMap {{ .Values.agentsExistingConfigMap }} into {{ .Values.agentsMountPath }}.
+
+{{- else if $agents }}
+
 Agents loaded from {{ .Values.agentsMountPath }}:
-{{- range $path, $_ := .Values.agents }}
+{{- range $path, $_ := $agents }}
   - {{ $path }}
 {{- end }}
-{{- if .Values.agentsExistingConfigMap }}
-  (from existing ConfigMap: {{ .Values.agentsExistingConfigMap }})
+{{- if not .Values.agents }}
+  (the built-in example; set agents to use your own)
+{{- end }}
+
+{{- else }}
+
+No agents are mounted by the chart.
+
+  Mount your own at {{ .Values.agentsMountPath }} with extraVolumes and
+  extraVolumeMounts, or set agents.
+
 {{- end }}
 
 Check the deployment:
