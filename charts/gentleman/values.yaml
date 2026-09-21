@@ -17,7 +17,6 @@ nameOverride: ''
 fullnameOverride: ''
 
 ## pod
-
 podAnnotations: {}
 podLabels: {}
 
@@ -26,6 +25,8 @@ podSecurityContext:
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+
+securityContext: {}
 
 ## env
 
@@ -140,7 +141,12 @@ agentsMountPath: /app/agents
 
 agentsExistingConfigMap: ''
 
-agents:
+# Your agents, keyed by file path. When set, defaultAgents is ignored.
+agents: {}
+
+# Shipped so that `helm install gentleman` works out of the box.
+# Used only when agents is empty. Set to null to mount no agents at all.
+defaultAgents:
   example/agent.yaml:
     model: gentleman:echo
     description: A helpful assistant.

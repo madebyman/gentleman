@@ -73,8 +73,20 @@ jobs:
 
       - name: render
         run: |
+          # defaults: built-in example agent
           helm template gentleman "$CHART_DIR" > /dev/null
+
+          # secrets
           helm template gentleman "$CHART_DIR" --set secrets.existingSecret=x > /dev/null
+          helm template gentleman "$CHART_DIR" --set secrets.create=true --set secrets.data.FOO=bar > /dev/null
+          ! helm template gentleman "$CHART_DIR" --set secrets.data.FOO=bar > /dev/null 2>&1
+
+          # agents
+          helm template gentleman "$CHART_DIR" --set-json 'agents={"mine/agent.yaml":{"model":"gentleman:echo"}}' > /dev/null
+          helm template gentleman "$CHART_DIR" --set agentsExistingConfigMap=my-agents > /dev/null
+          helm template gentleman "$CHART_DIR" --set defaultAgents=null \
+            --set-json 'extraVolumes=[{"name":"x","emptyDir":{}}]' \
+            --set-json 'extraVolumeMounts=[{"name":"x","mountPath":"/x"}]' > /dev/null
 
       - name: package
         run: helm package "$CHART_DIR" --version "$VERSION" -d dist

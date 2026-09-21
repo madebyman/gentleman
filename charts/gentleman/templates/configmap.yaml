@@ -1,4 +1,6 @@
-{{- if and .Values.agents (not .Values.agentsExistingConfigMap) }}
+{{- $agents := .Values.agents | default .Values.defaultAgents }}
+
+{{- if and $agents (not .Values.agentsExistingConfigMap) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +9,7 @@ metadata:
   labels:
     {{- include "gentleman.labels" . | nindent 4 }}
 data:
-{{- range $path, $spec := .Values.agents }}
+{{- range $path, $spec := $agents }}
   {{ include "gentleman.agentKey" $path }}: |
 {{ toYaml $spec | indent 4 }}
 {{- end }}

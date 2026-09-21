@@ -1,9 +1,9 @@
 # Gentleman
 
-[![PyPI](https://img.shields.io/pypi/v/gentleman-agents)](https://pypi.org/project/gentleman-agents/)
-[![Python](https://img.shields.io/pypi/pyversions/gentleman-agents)](https://pypi.org/project/gentleman-agents/)
-[![License](https://img.shields.io/pypi/l/gentleman-agents)](https://github.com/madebyman/gentleman/blob/main/LICENSE)
-[![Docker](https://img.shields.io/badge/ghcr.io-gentleman-blue?logo=docker)](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
+[![PyPI](https://img.shields.io/pypi/v/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
+[![Docker](https://img.shields.io/badge/ghcr.io-gentleman-fff?labelColor=222&logo=docker&logoColor=fff)](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
+[![Python](https://img.shields.io/pypi/pyversions/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
+[![License](https://img.shields.io/pypi/l/gentleman-agents?labelColor=222&color=fff)](https://github.com/madebyman/gentleman/blob/main/LICENSE)
 
 *A gentleman among agents.*
 

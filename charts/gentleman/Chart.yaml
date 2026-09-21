@@ -2,5 +2,38 @@ apiVersion: v2
 name: gentleman
 description: Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans
 type: application
-version: 0.1.1
-appVersion: "0.3.1"
+version: 0.1.0
+appVersion: "0.4.0"
+home: https://github.com/madebyman/gentleman
+sources:
+  - https://github.com/madebyman/gentleman
+keywords:
+  - ai
+  - agents
+  - agent-server
+  - llm
+  - pydantic-ai
+  - mcp
+  - a2a
+  - ag-ui
+maintainers:
+  - name: masafumi-sasahara
+    email: masafumi@sasahara.io
+    url: https://github.com/masafumi-sasahara
+annotations:
+  artifacthub.io/category: ai-machine-learning
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: source
+      url: https://github.com/madebyman/gentleman
+    - name: support
+      url: https://github.com/madebyman/gentleman/issues
+  artifacthub.io/images: |
+    - name: gentleman
+      image: ghcr.io/madebyman/gentleman:0.4.0
+      platforms:
+        - linux/amd64
+        - linux/arm64
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release on Artifact Hub

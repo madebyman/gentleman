@@ -1,3 +1,4 @@
+{{- $agents := .Values.agents | default .Values.defaultAgents }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,7 +59,7 @@ spec:
             {{- toYaml . | nindent 10 }}
           {{- end }}
 
-          {{- if or .Values.secrets.existingSecret .Values.secrets.data }}
+          {{- if or .Values.secrets.existingSecret (and .Values.secrets.create .Values.secrets.data) }}
           envFrom:
           - secretRef:
               name: {{ include "gentleman.secretName" . }}
@@ -79,26 +80,33 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
+          {{- if or $agents .Values.agentsExistingConfigMap .Values.extraVolumeMounts }}
           volumeMounts:
+          {{- if or $agents .Values.agentsExistingConfigMap }}
           - name: agents
             mountPath: {{ .Values.agentsMountPath }}
             readOnly: true
+          {{- end }}
           {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
+          {{- end }}
 
-      {{- if or .Values.agents .Values.agentsExistingConfigMap }}
+      {{- if or $agents .Values.agentsExistingConfigMap .Values.extraVolumes }}
       volumes:
+      {{- if or $agents .Values.agentsExistingConfigMap }}
+
       - name: agents
         configMap:
           name: {{ include "gentleman.agentsConfigMapName" . }}
           {{- if not .Values.agentsExistingConfigMap }}
           items:
-          {{- range $path, $_ := .Values.agents }}
+          {{- range $path, $_ := $agents }}
           - key: {{ include "gentleman.agentKey" $path }}
             path: {{ $path }}
           {{- end }}
           {{- end }}
+      {{- end }}
       {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 6 }}
       {{- end }}
