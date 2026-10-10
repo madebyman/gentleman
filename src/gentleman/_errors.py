@@ -26,6 +26,5 @@ class RemoteTaskError(Error):
     pass
 
 
-
 __all__ = [k for k, v in globals().items()
            if isinstance(v, type) and issubclass(v, Error)]

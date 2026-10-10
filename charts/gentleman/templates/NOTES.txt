@@ -55,15 +55,6 @@ WARNING: both ingress.enabled and httpRoute.enabled are set.
 
 {{- end }}
 
-{{- if and .Values.ingress.enabled .Values.httpRoute.enabled }}
-
-WARNING: both ingress.enabled and httpRoute.enabled are set.
-
-  This is supported for migration, but the same hostname may be served
-  twice. Disable one of them once the cutover is complete.
-
-{{- end }}
-
 In-cluster address:
 
   http://{{ include "gentleman.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}

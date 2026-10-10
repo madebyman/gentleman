@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "gentleman",
+  "description": "Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans.",
+  "type": "object",
+  "properties": {
+    "global": {
+      "description": "Values shared with parent charts.",
+      "type": "object"
+    },
+
+    "replicaCount": {
+      "description": "Number of replicas. Ignored when autoscaling is enabled.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "autoscaling": {
+      "description": "HorizontalPodAutoscaler.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": ["integer", "null"], "minimum": 1 },
+        "targetMemoryUtilizationPercentage": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": {
+          "description": "Defaults to the chart appVersion when empty.",
+          "type": "string"
+        },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+
+    "podAnnotations": { "type": "object", "additionalProperties": { "type": "string" } },
+    "podLabels": { "type": "object", "additionalProperties": { "type": "string" } },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+
+    "appOrigin": {
+      "description": "Public origin gentleman advertises. Derived from the first ingress host when empty, falling back to http://localhost:8000.",
+      "type": "string",
+      "pattern": "^(|https?://[^/]+)$"
+    },
+    "env": {
+      "description": "Environment variables (GENTLEMAN_*).",
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean"] }
+    },
+    "extraEnv": {
+      "description": "Additional env entries, as in a container spec.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "value": { "type": ["string", "number", "boolean"] },
+          "valueFrom": { "type": "object" }
+        },
+        "required": ["name"]
+      }
+    },
+
+    "livenessProbe": { "type": ["object", "null"] },
+    "readinessProbe": { "type": ["object", "null"] },
+    "resources": { "type": "object" },
+
+    "extraVolumes": { "type": "array", "items": { "type": "object" } },
+    "extraVolumeMounts": { "type": "array", "items": { "type": "object" } },
+    "nodeSelector": { "type": "object", "additionalProperties": { "type": "string" } },
+    "affinity": { "type": "object" },
+    "tolerations": { "type": "array", "items": { "type": "object" } },
+
+    "secrets": {
+      "description": "Model provider credentials, loaded into the container with envFrom.",
+      "type": "object",
+      "properties": {
+        "existingSecret": {
+          "description": "Name of an existing Secret. Takes precedence over create/data.",
+          "type": "string"
+        },
+        "create": { "type": "boolean" },
+        "data": {
+          "description": "Key/value pairs for the created Secret. Requires create: true.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "targetPort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": { "type": "string" },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": { "type": "string" },
+                    "pathType": {
+                      "type": "string",
+                      "enum": ["Exact", "Prefix", "ImplementationSpecific"]
+                    }
+                  },
+                  "required": ["path"]
+                }
+              }
+            },
+            "required": ["host"]
+          }
+        },
+        "tls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "secretName": { "type": "string" },
+              "hosts": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+
+    "httpRoute": {
+      "description": "Gateway API HTTPRoute.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "parentRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "namespace": { "type": "string" },
+              "sectionName": { "type": "string" },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            },
+            "required": ["name"]
+          }
+        },
+        "hostnames": {
+          "description": "Templated with tpl.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "path": { "type": "string" },
+        "pathType": {
+          "type": "string",
+          "enum": ["Exact", "PathPrefix", "RegularExpression"]
+        },
+        "timeouts": {
+          "description": "Raise these for long-lived SSE connections.",
+          "type": "object",
+          "properties": {
+            "request": { "type": "string" },
+            "backendRequest": { "type": "string" }
+          }
+        },
+        "rules": {
+          "description": "Replaces the generated rule entirely. Templated with tpl.",
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "automount": { "type": "boolean" },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "name": { "type": "string" }
+      }
+    },
+
+    "agentsMountPath": {
+      "description": "Where agent files are mounted.",
+      "type": "string",
+      "pattern": "^/"
+    },
+    "agentsExistingConfigMap": {
+      "description": "Use an existing ConfigMap for agents. Mounted flat, one file per key.",
+      "type": "string"
+    },
+    "agents": {
+      "description": "Your agent definitions, keyed by file path. When set, defaultAgents is ignored.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/agent"
+      }
+    },
+    "defaultAgents": {
+      "description": "Used only when agents is empty. Set to null to mount no agents at all.",
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "$ref": "#/definitions/agent"
+      }
+    }
+  },
+
+  "definitions": {
+    "agent": {
+      "description": "A gentleman agent definition.",
+      "type": "object",
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "instructions": { "type": "string" },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "visibility": { "type": "string", "enum": ["public", "private"] },
+            "delegates": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "metadata": { "type": "object" }
+      },
+      "required": ["model"]
+    }
+  }
+}
