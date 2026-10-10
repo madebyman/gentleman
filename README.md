@@ -5,9 +5,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
 [![License](https://img.shields.io/pypi/l/gentleman-agents?labelColor=222&color=fff)](https://github.com/madebyman/gentleman/blob/main/LICENSE)
 
-*A gentleman among agents.*
-
-Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans.
+Declarative AI agent framework — MCP for tools, A2A for agents, AG-UI for humans.
 
 ## Requirements
 
