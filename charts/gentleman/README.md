@@ -12,7 +12,7 @@ Source: https://github.com/madebyman/gentleman
 
   Install the chart from ghcr:
 
-    helm install gentleman oci://ghcr.io/madebyman/charts/gentleman --version 0.1.0
+    helm install gentleman oci://ghcr.io/madebyman/charts/gentleman
 
   Check the deployment:
 
