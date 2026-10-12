@@ -187,7 +187,7 @@ Source: https://github.com/madebyman/gentleman
   | `podSecurityContext` | Pod security context | non-root, uid/gid 1000 |
   | `securityContext` | Container security context | `{}` |
   | `resources` | Container resources | 100m / 256Mi, limit 512Mi |
-  | `livenessProbe` / `readinessProbe` | Probes against `/health` | see values |
+  | `livenessProbe` / `readinessProbe` | Probes against `/ready` | see values |
   | `extraVolumes` / `extraVolumeMounts` | Additional volumes and mounts | `[]` |
   | `nodeSelector` / `affinity` / `tolerations` | Scheduling | empty |
 

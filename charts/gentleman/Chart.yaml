@@ -5,6 +5,7 @@ type: application
 version: 0.1.1
 appVersion: "0.4.0"
 home: https://github.com/madebyman/gentleman
+icon: https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman-icon.svg
 sources:
   - https://github.com/madebyman/gentleman
 keywords:

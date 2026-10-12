@@ -1,4 +1,6 @@
-# Gentleman
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman.svg" alt="Gentleman" width="480">
+</h1>
 
 [![PyPI](https://img.shields.io/pypi/v/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
 [![Docker](https://img.shields.io/badge/ghcr.io-gentleman-fff?labelColor=222&logo=docker&logoColor=fff)](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
