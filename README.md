@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman.svg" alt="Gentleman" width="480">
+  <img src="https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman-logo.svg" alt="Gentleman" width="480">
 </h1>
 
 [![PyPI](https://img.shields.io/pypi/v/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
