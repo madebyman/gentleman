@@ -2,13 +2,19 @@
   <img src="https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman-logo.svg" alt="Gentleman" width="480">
 </h1>
 
-[![PyPI](https://img.shields.io/pypi/v/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
-[![Docker](https://img.shields.io/badge/ghcr.io-gentleman-fff?labelColor=222&logo=docker&logoColor=fff)](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
-[![Artifact Hub](https://img.shields.io/badge/Artifact_Hub-gentleman-fff?labelColor=222&logo=artifacthub&logoColor=fff)](https://artifacthub.io/packages/helm/gentleman/gentleman)
-[![Python](https://img.shields.io/pypi/pyversions/gentleman-agents?labelColor=222&color=fff)](https://pypi.org/project/gentleman-agents/)
-[![License](https://img.shields.io/pypi/l/gentleman-agents?labelColor=222&color=fff)](https://github.com/madebyman/gentleman/blob/main/LICENSE)
+<p align="center">
+  <a href="https://pypi.org/project/gentleman-agents/"><img src="https://img.shields.io/pypi/v/gentleman-agents?labelColor=222&color=fff" alt="PyPI"></a>
+  <a href="https://github.com/madebyman/gentleman/pkgs/container/gentleman"><img src="https://img.shields.io/badge/ghcr.io-gentleman-fff?labelColor=222&logo=docker&logoColor=fff" alt="Docker"></a>
+  <a href="https://artifacthub.io/packages/helm/gentleman/gentleman"><img src="https://img.shields.io/badge/Artifact_Hub-gentleman-fff?labelColor=222&logo=artifacthub&logoColor=fff" alt="Artifact Hub"></a>
+  <a href="https://pypi.org/project/gentleman-agents/"><img src="https://img.shields.io/pypi/pyversions/gentleman-agents?labelColor=222&color=fff" alt="Python"></a>
+  <a href="https://github.com/madebyman/gentleman/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/gentleman-agents?labelColor=222&color=fff" alt="License"></a>
+</p>
 
-Declarative AI agent framework — MCP for tools, A2A for agents, AG-UI for humans.
+<hr>
+
+<p align="center">
+  <b>Gentleman</b> <i>Declarative AI agent framework</i> — MCP for tools, A2A for agents, AG-UI for humans.
+</p>
 
 ## Requirements
 
