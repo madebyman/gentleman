@@ -45,6 +45,49 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
+      # Scan before anything is pushed: build amd64 only and load it into the
+      # runner's Docker (a multi-platform build cannot be loaded). The real
+      # build below reuses this builder's cache. arm64 carries the same
+      # package versions, so amd64 stands for both.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: gentleman:scan
+          cache-from: type=registry,ref=ghcr.io/madebyman/gentleman:buildcache
+
+      # Report: fixable CRITICAL / HIGH into the step summary. Never fails.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gentleman:scan
+          scanners: vuln
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          format: table
+          output: trivy.txt
+          exit-code: '0'
+
+      - name: trivy summary
+        if: always()
+        run: |
+          {
+            echo '### Trivy (fixable, CRITICAL / HIGH)'
+            echo '```'
+            cat trivy.txt 2>/dev/null || echo '(no report)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Gate: any fixable CRITICAL stops the publish. HIGH is reported only,
+      # since some of it (e.g. npm's bundled dependencies) cannot be fixed here.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gentleman:scan
+          scanners: vuln
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'
+
       - uses: docker/build-push-action@v6
         with:
           context: .

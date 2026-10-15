@@ -68,6 +68,10 @@
       }
     },
 
+    "startupProbe": {
+      "description": "Holds off liveness and readiness until startup (MCP servers included) completes.",
+      "type": ["object", "null"]
+    },
     "livenessProbe": { "type": ["object", "null"] },
     "readinessProbe": { "type": ["object", "null"] },
     "resources": { "type": "object" },
@@ -180,7 +184,7 @@
           "enum": ["Exact", "PathPrefix", "RegularExpression"]
         },
         "timeouts": {
-          "description": "Raise these for long-lived SSE connections.",
+          "description": "Timeouts for the generated rule. Raise these for long-lived SSE connections. Ignored when rules is set.",
           "type": "object",
           "properties": {
             "request": { "type": "string" },
@@ -206,33 +210,64 @@
     },
 
     "agentsMountPath": {
-      "description": "Where agent files are mounted.",
+      "description": "Where agent directories are mounted. An emptyDir is laid here, with one ConfigMap per agent on top.",
       "type": "string",
       "pattern": "^/"
     },
-    "agentsExistingConfigMap": {
-      "description": "Use an existing ConfigMap for agents. Mounted flat, one file per key.",
-      "type": "string"
-    },
     "agents": {
-      "description": "Your agent definitions, keyed by file path. When set, defaultAgents is ignored.",
+      "description": "Your agents, keyed by agent name. One ConfigMap is created per agent. When set, defaultAgents is ignored.",
+      "$ref": "#/definitions/agents"
+    },
+    "existingAgents": {
+      "description": "Agents from ConfigMaps you manage, as agent name: ConfigMap name. Their keys become the files in the agent's directory. When set, defaultAgents is ignored.",
       "type": "object",
+      "propertyNames": { "$ref": "#/definitions/agentName" },
       "additionalProperties": {
-        "$ref": "#/definitions/agent"
+        "type": "string",
+        "maxLength": 253,
+        "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
       }
     },
     "defaultAgents": {
-      "description": "Used only when agents is empty. Set to null to mount no agents at all.",
-      "type": ["object", "null"],
-      "additionalProperties": {
-        "$ref": "#/definitions/agent"
-      }
+      "description": "Used only when agents and existingAgents are both empty. Set to null to mount no agents at all.",
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/agents" }
+      ]
     }
   },
 
   "definitions": {
+    "agentName": {
+      "description": "The agent's directory name under agentsMountPath. gentleman skips directories starting with '.'.",
+      "type": "string",
+      "pattern": "^[^./][^/]*$"
+    },
+    "agents": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/agentName" },
+      "additionalProperties": { "$ref": "#/definitions/agentDir" }
+    },
+    "agentDir": {
+      "description": "The files of one agent directory: agent.yaml or a2a.yaml, and optionally mcp_config.json (with agent.yaml).",
+      "type": "object",
+      "properties": {
+        "agent.yaml": { "$ref": "#/definitions/agent" },
+        "a2a.yaml": { "$ref": "#/definitions/remoteAgent" },
+        "mcp_config.json": { "$ref": "#/definitions/mcpConfig" }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["agent.yaml"] },
+        { "required": ["a2a.yaml"] }
+      ],
+      "allOf": [
+        { "not": { "required": ["agent.yaml", "a2a.yaml"] } },
+        { "not": { "required": ["a2a.yaml", "mcp_config.json"] } }
+      ]
+    },
     "agent": {
-      "description": "A gentleman agent definition.",
+      "description": "A gentleman agent definition (agent.yaml).",
       "type": "object",
       "properties": {
         "model": { "type": "string", "minLength": 1 },
@@ -243,11 +278,38 @@
           "properties": {
             "visibility": { "type": "string", "enum": ["public", "private"] },
             "delegates": { "type": "array", "items": { "type": "string" } }
-          }
+          },
+          "additionalProperties": false
         },
         "metadata": { "type": "object" }
       },
       "required": ["model"]
+    },
+    "remoteAgent": {
+      "description": "A remote agent over A2A (a2a.yaml).",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "pattern": "^https?://" },
+        "description": { "type": "string" },
+        "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+        "timeout": { "type": "number", "exclusiveMinimum": 0 },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "visibility": { "type": "string", "enum": ["public", "private"] }
+          },
+          "additionalProperties": false
+        },
+        "metadata": { "type": "object" }
+      },
+      "required": ["url"]
+    },
+    "mcpConfig": {
+      "description": "MCP servers for the agent (mcp_config.json).",
+      "type": "object",
+      "properties": {
+        "mcpServers": { "type": "object", "additionalProperties": { "type": "object" } }
+      }
     }
   }
 }

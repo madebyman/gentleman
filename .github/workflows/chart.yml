@@ -83,8 +83,14 @@ jobs:
           ! helm template gentleman "$CHART_DIR" --set secrets.data.FOO=bar > /dev/null 2>&1
 
           # agents
-          helm template gentleman "$CHART_DIR" --set-json 'agents={"mine/agent.yaml":{"model":"gentleman:echo"}}' > /dev/null
-          helm template gentleman "$CHART_DIR" --set agentsExistingConfigMap=my-agents > /dev/null
+          helm template gentleman "$CHART_DIR" --set-json 'agents={"mine":{"agent.yaml":{"model":"gentleman:echo"}}}' > /dev/null
+          helm template gentleman "$CHART_DIR" --set-json 'agents={"mine":{"agent.yaml":{"model":"gentleman:echo"},"mcp_config.json":{"mcpServers":{}}}}' > /dev/null
+          helm template gentleman "$CHART_DIR" --set-json 'agents={"far":{"a2a.yaml":{"url":"https://far.example.com/a2a/far"}}}' > /dev/null
+          helm template gentleman "$CHART_DIR" --set existingAgents.mine=my-agent > /dev/null
+          ! helm template gentleman "$CHART_DIR" --set-json 'agents={"mine":{"agent.yaml":{"model":"gentleman:echo"}}}' --set existingAgents.mine=x > /dev/null 2>&1
+          ! helm template gentleman "$CHART_DIR" --set-json 'agents={".hidden":{"agent.yaml":{"model":"gentleman:echo"}}}' > /dev/null 2>&1
+          ! helm template gentleman "$CHART_DIR" --set-json 'agents={"mine":{"agent.yml":{"model":"gentleman:echo"}}}' > /dev/null 2>&1
+          ! helm template gentleman "$CHART_DIR" --set-json 'agents={"mine/agent.yaml":{"model":"gentleman:echo"}}' > /dev/null 2>&1
           helm template gentleman "$CHART_DIR" --set defaultAgents=null \
             --set-json 'extraVolumes=[{"name":"x","emptyDir":{}}]' \
             --set-json 'extraVolumeMounts=[{"name":"x","mountPath":"/x"}]' > /dev/null

@@ -80,16 +80,41 @@ http://localhost:8000
 {{- end -}}
 
 
-{{/* path -> ConfigMap key */}}
+{{/*
+Agents the chart creates ConfigMaps for, as YAML (read back with fromYaml).
+defaultAgents is used only when agents and existingAgents are both empty.
+*/}}
 
-{{- define "gentleman.agentKey" -}}
-{{- . | replace "/" "__" -}}
+{{- define "gentleman.agents" -}}
+{{- if or .Values.agents .Values.existingAgents -}}
+{{- toYaml (.Values.agents | default dict) -}}
+{{- else -}}
+{{- toYaml (.Values.defaultAgents | default dict) -}}
+{{- end -}}
 {{- end -}}
 
-{{/* agentsConfigMapName */}}
+{{/*
+Agent name -> DNS-1123 label fragment.
+The name is used as-is when it already fits; otherwise it is slugged and a
+short hash is appended, so that names which slug alike (my_agent / my-agent)
+stay distinct.
+*/}}
 
-{{- define "gentleman.agentsConfigMapName" -}}
-{{- .Values.agentsExistingConfigMap | default (printf "%s-agents" (include "gentleman.fullname" .)) -}}
+{{- define "gentleman.agentId" -}}
+{{- $slug := regexReplaceAll "[^a-z0-9-]+" (lower .) "-" | trimAll "-" | trunc 30 | trimSuffix "-" -}}
+{{- if eq $slug . -}}
+{{- $slug -}}
+{{- else if $slug -}}
+{{- printf "%s-%s" $slug (sha256sum . | trunc 6) -}}
+{{- else -}}
+{{- sha256sum . | trunc 6 -}}
+{{- end -}}
+{{- end -}}
+
+{{/* ConfigMap created for an agent: dict "root" $ "name" <agent name> */}}
+
+{{- define "gentleman.agentConfigMapName" -}}
+{{- printf "%s-agent-%s" (include "gentleman.fullname" .root) (include "gentleman.agentId" .name) | trunc 253 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/* serviceAccountName */}}

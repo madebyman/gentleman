@@ -1,4 +1,11 @@
-{{- $agents := .Values.agents | default .Values.defaultAgents }}
+{{- $agents := include "gentleman.agents" . | fromYaml }}
+{{- $existing := .Values.existingAgents | default dict }}
+{{- range $name, $_ := $existing }}
+{{- if hasKey $agents $name }}
+{{- fail (printf "agent %q is defined in both agents and existingAgents" $name) }}
+{{- end }}
+{{- end }}
+{{- $mountAgents := or $agents $existing }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -65,6 +72,11 @@ spec:
               name: {{ include "gentleman.secretName" . }}
           {{- end }}
 
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -80,32 +92,42 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          {{- if or $agents .Values.agentsExistingConfigMap .Values.extraVolumeMounts }}
+          {{- if or $mountAgents .Values.extraVolumeMounts }}
           volumeMounts:
-          {{- if or $agents .Values.agentsExistingConfigMap }}
+          {{- if $mountAgents }}
           - name: agents
             mountPath: {{ .Values.agentsMountPath }}
+          {{- range $name, $_ := $agents }}
+          - name: agent-{{ include "gentleman.agentId" $name }}
+            mountPath: {{ printf "%s/%s" (trimSuffix "/" $.Values.agentsMountPath) $name | quote }}
             readOnly: true
+          {{- end }}
+          {{- range $name, $_ := $existing }}
+          - name: agent-{{ include "gentleman.agentId" $name }}
+            mountPath: {{ printf "%s/%s" (trimSuffix "/" $.Values.agentsMountPath) $name | quote }}
+            readOnly: true
+          {{- end }}
           {{- end }}
           {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 10 }}
           {{- end }}
           {{- end }}
 
-      {{- if or $agents .Values.agentsExistingConfigMap .Values.extraVolumes }}
+      {{- if or $mountAgents .Values.extraVolumes }}
       volumes:
-      {{- if or $agents .Values.agentsExistingConfigMap }}
-
+      {{- if $mountAgents }}
       - name: agents
+        emptyDir: {}
+      {{- range $name, $_ := $agents }}
+      - name: agent-{{ include "gentleman.agentId" $name }}
         configMap:
-          name: {{ include "gentleman.agentsConfigMapName" . }}
-          {{- if not .Values.agentsExistingConfigMap }}
-          items:
-          {{- range $path, $_ := $agents }}
-          - key: {{ include "gentleman.agentKey" $path }}
-            path: {{ $path }}
-          {{- end }}
-          {{- end }}
+          name: {{ include "gentleman.agentConfigMapName" (dict "root" $ "name" $name) }}
+      {{- end }}
+      {{- range $name, $configMap := $existing }}
+      - name: agent-{{ include "gentleman.agentId" $name }}
+        configMap:
+          name: {{ $configMap }}
+      {{- end }}
       {{- end }}
       {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 6 }}

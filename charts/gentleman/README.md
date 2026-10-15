@@ -3,7 +3,8 @@
 Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans.
 
 This chart deploys gentleman on Kubernetes. Agents are declared as YAML in
-`values.yaml`, rendered into a ConfigMap, and mounted into the pod.
+`values.yaml`, rendered into one ConfigMap per agent, and mounted into the pod
+as one directory per agent.
 
 Source: https://github.com/madebyman/gentleman
 
@@ -35,45 +36,85 @@ Source: https://github.com/madebyman/gentleman
 
 ## Agents
 
-  Each key under `agents` is a file path under `agentsMountPath`, and its value
-  is the agent definition written to that file.
+  gentleman reads one directory per agent: `<name>/agent.yaml` (or
+  `<name>/a2a.yaml` for a remote agent), with an optional
+  `<name>/mcp_config.json`. The chart keeps that layout.
+
+  Each key under `agents` is an agent name, and holds that agent's files:
 
     agents:
-      assistant/agent.yaml:
-        model: gentleman:echo
-        description: A helpful assistant.
-        routing:
-          visibility: public
-          delegates: []
-        metadata:
-          version: 1.0.0
-        instructions: |
-          You are a helpful assistant.
+      concierge:
+        agent.yaml:
+          model: gentleman:echo
+          description: Front desk.
+          routing:
+            visibility: public
+            delegates: [writer]
+        mcp_config.json:
+          mcpServers:
+            time:
+              command: uvx
+              args: [mcp-server-time]
+      writer:
+        agent.yaml:
+          model: gentleman:echo
+      far:
+        a2a.yaml:
+          url: https://far.example.com/a2a/far
 
-  The path is kept as-is inside the pod:
+  Inside the pod:
 
-    /app/agents/assistant/agent.yaml
+    /app/agents/concierge/agent.yaml
+    /app/agents/concierge/mcp_config.json
+    /app/agents/writer/agent.yaml
+    /app/agents/far/a2a.yaml
 
-  When `agents` is empty, `defaultAgents` is used instead. It holds the
-  built-in example, so `helm install gentleman` works out of the box.
+  `agent.yaml` and `a2a.yaml` are written as YAML, `mcp_config.json` as JSON.
+  The schema rejects other file names, both `agent.yaml` and `a2a.yaml` in one
+  agent, `mcp_config.json` next to `a2a.yaml`, and names starting with `.`
+  (gentleman skips such directories).
 
-  Once you set `agents`, `defaultAgents` is ignored — the example is not mixed
-  into your agents.
+  The chart lays an emptyDir at `agentsMountPath` and mounts one ConfigMap per
+  agent on top of it, so the image's built-in example never mixes in.
+
+  When `agents` and `existingAgents` are both empty, `defaultAgents` is used
+  instead. It holds the built-in example, so `helm install gentleman` works
+  out of the box. Once you set either, `defaultAgents` is ignored.
 
   Changes to `agents` or `defaultAgents` roll the pods automatically
   (checksum/agents).
 
-  To manage agents outside the chart, point to your own ConfigMap:
+  Agent names that are not valid Kubernetes names (`my_agent`, `Writer`) are
+  fine: the ConfigMap and volume get a sanitized name with a short hash, and
+  the directory keeps the real name.
 
-    agentsExistingConfigMap: my-agents
+  gentleman starts every agent's MCP servers before it opens its port, one
+  after another (`initTimeout`, 30s each by default). `startupProbe` allows
+  150s for that; raise `startupProbe.failureThreshold` for more servers.
 
-  NOTE: ConfigMap keys cannot contain `/`, so an existing ConfigMap is mounted
-  flat — one file per key, directly under `agentsMountPath`.
+### Your own ConfigMaps
 
-  NOTE: An existing ConfigMap is not watched. Restart the deployment after
-  changing it:
+  To manage an agent outside the chart, make one ConfigMap per agent from its
+  directory — each file becomes a key:
+
+    kubectl create configmap my-writer --from-file=agents/writer
+
+  and map agent names to ConfigMap names:
+
+    existingAgents:
+      writer: my-writer
+
+  `agents` and `existingAgents` can be used together, but the same agent name
+  in both fails the render.
+
+  NOTE: ConfigMaps in `existingAgents` are not watched. Restart the deployment
+  after changing them:
 
     kubectl rollout restart deploy/gentleman
+
+  NOTE: A missing ConfigMap keeps the pod in ContainerCreating (FailedMount).
+
+### Your own volume
 
   To bring your own volume (e.g. a PVC), mount no agents from the chart:
 
@@ -148,7 +189,8 @@ Source: https://github.com/madebyman/gentleman
         - agents.example.com
 
   `httpRoute.rules` replaces the generated rule entirely, for when a single
-  path prefix is not enough.
+  path prefix is not enough. `httpRoute.timeouts` applies to the generated
+  rule only; with `rules`, write `timeouts` in each rule yourself.
 
   AG-UI streams over SSE. Make sure the proxy in front of it does not buffer
   responses or cut idle connections too early:
@@ -156,9 +198,35 @@ Source: https://github.com/madebyman/gentleman
     Traefik  — disable response buffering for the route.
     AWS ALB  — alb.ingress.kubernetes.io/load-balancer-attributes:
                idle_timeout.timeout_seconds=300
+    Gateway  — httpRoute.timeouts.request covers the whole stream; its
+               default depends on the implementation ("0s" disables it):
+
+                 httpRoute:
+                   timeouts:
+                     request: 300s
+                     backendRequest: 300s
 
   Enabling both `ingress` and `httpRoute` is supported for migration, but the
   same hostname may be served twice. Disable one once the cutover is complete.
+
+
+## Replicas
+
+  Run gentleman with one replica:
+
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+
+  A2A tasks are kept in memory, in the pod that received them. With more than
+  one replica, `tasks/get` and `tasks/resubscribe` for a task may reach
+  another pod and fail (task not found).
+
+  AG-UI and MCP keep no state between requests, but the A2A interface is
+  served by the same pod, so the limit applies to the whole deployment.
+
+  Tasks do not survive a restart or a rollout either: a task started on the
+  old pod is gone once it stops.
 
 
 ## Values
@@ -167,8 +235,8 @@ Source: https://github.com/madebyman/gentleman
 
   | Key | Description | Default |
   |---|---|---|
-  | `replicaCount` | Number of replicas (ignored when autoscaling is enabled) | `1` |
-  | `autoscaling.enabled` | Create a HorizontalPodAutoscaler | `false` |
+  | `replicaCount` | Number of replicas (ignored when autoscaling is enabled). Keep it at 1 — see Replicas | `1` |
+  | `autoscaling.enabled` | Create a HorizontalPodAutoscaler. Keep it off — see Replicas | `false` |
   | `autoscaling.minReplicas` | Minimum replicas | `1` |
   | `autoscaling.maxReplicas` | Maximum replicas | `100` |
   | `autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization | `80` |
@@ -187,7 +255,9 @@ Source: https://github.com/madebyman/gentleman
   | `podSecurityContext` | Pod security context | non-root, uid/gid 1000 |
   | `securityContext` | Container security context | `{}` |
   | `resources` | Container resources | 100m / 256Mi, limit 512Mi |
-  | `livenessProbe` / `readinessProbe` | Probes against `/ready` | see values |
+  | `startupProbe` | Holds off the other probes until startup completes, MCP servers included (150s) | see values |
+  | `livenessProbe` | Restarts the container when `/health` fails | see values |
+  | `readinessProbe` | Takes the pod out of the Service when `/ready` returns 503 (starting up, shutting down) | see values |
   | `extraVolumes` / `extraVolumeMounts` | Additional volumes and mounts | `[]` |
   | `nodeSelector` / `affinity` / `tolerations` | Scheduling | empty |
 
@@ -206,10 +276,10 @@ Source: https://github.com/madebyman/gentleman
 
   | Key | Description | Default |
   |---|---|---|
-  | `agentsMountPath` | Where agent files are mounted | `/app/agents` |
-  | `agentsExistingConfigMap` | Use an existing ConfigMap for agents | `""` |
-  | `agents` | Your agent definitions, keyed by file path | `{}` |
-  | `defaultAgents` | Used only when `agents` is empty; `null` for none | `example/agent.yaml` |
+  | `agentsMountPath` | Where agent directories are mounted | `/app/agents` |
+  | `agents` | Your agents, keyed by agent name, then file name | `{}` |
+  | `existingAgents` | Agents from your own ConfigMaps, as `name: ConfigMap` | `{}` |
+  | `defaultAgents` | Used only when `agents` and `existingAgents` are empty; `null` for none | `example` |
 
   Networking
 
@@ -228,6 +298,7 @@ Source: https://github.com/madebyman/gentleman
   | `httpRoute.parentRefs` | Gateways to attach to | `gateway` / `http` |
   | `httpRoute.hostnames` | Hostnames (templated) | `[]` |
   | `httpRoute.path` / `httpRoute.pathType` | Match for the generated rule | `/` / `PathPrefix` |
+  | `httpRoute.timeouts` | `request` / `backendRequest` for the generated rule; ignored with `rules` | `{}` |
   | `httpRoute.rules` | Replace the generated rule (templated) | `[]` |
 
   ServiceAccount

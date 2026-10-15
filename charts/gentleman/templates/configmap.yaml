@@ -1,16 +1,22 @@
-{{- $agents := .Values.agents | default .Values.defaultAgents }}
-
-{{- if and $agents (not .Values.agentsExistingConfigMap) }}
+{{- $agents := include "gentleman.agents" . | fromYaml }}
+{{- range $name, $files := $agents }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "gentleman.fullname" . }}-agents
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "gentleman.agentConfigMapName" (dict "root" $ "name" $name) }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "gentleman.labels" . | nindent 4 }}
+    {{- include "gentleman.labels" $ | nindent 4 }}
+  annotations:
+    gentleman/agent: {{ $name | quote }}
 data:
-{{- range $path, $spec := $agents }}
-  {{ include "gentleman.agentKey" $path }}: |
-{{ toYaml $spec | indent 4 }}
-{{- end }}
+  {{- range $file, $body := $files }}
+  {{ $file }}: |
+    {{- if hasSuffix ".json" $file }}
+    {{- toPrettyJson $body | nindent 4 }}
+    {{- else }}
+    {{- toYaml $body | nindent 4 }}
+    {{- end }}
+  {{- end }}
 {{- end }}

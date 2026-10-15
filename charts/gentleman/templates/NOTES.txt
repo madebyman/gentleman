@@ -1,4 +1,5 @@
-{{- $agents := .Values.agents | default .Values.defaultAgents -}}
+{{- $agents := include "gentleman.agents" . | fromYaml -}}
+{{- $existing := .Values.existingAgents | default dict -}}
 gentleman {{ .Values.image.tag | default .Chart.AppVersion }} has been deployed.
 
 {{- if contains "NodePort" .Values.service.type }}
@@ -59,18 +60,26 @@ In-cluster address:
 
   http://{{ include "gentleman.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
 
-{{- if .Values.agentsExistingConfigMap }}
+{{- if or $agents $existing }}
 
-Agents loaded from ConfigMap {{ .Values.agentsExistingConfigMap }} into {{ .Values.agentsMountPath }}.
-
-{{- else if $agents }}
-
-Agents loaded from {{ .Values.agentsMountPath }}:
-{{- range $path, $_ := $agents }}
-  - {{ $path }}
+Agents loaded into {{ .Values.agentsMountPath }}:
+{{- range $name, $_ := $agents }}
+  - {{ $name }}
 {{- end }}
-{{- if not .Values.agents }}
+{{- range $name, $configMap := $existing }}
+  - {{ $name }} (ConfigMap {{ $configMap }})
+{{- end }}
+{{- if not (or .Values.agents $existing) }}
   (the built-in example; set agents to use your own)
+{{- end }}
+
+{{- if $existing }}
+
+  ConfigMaps in existingAgents are not watched. Restart the deployment
+  after changing them:
+
+    kubectl --namespace {{ .Release.Namespace }} rollout restart deploy/{{ include "gentleman.fullname" . }}
+
 {{- end }}
 
 {{- else }}

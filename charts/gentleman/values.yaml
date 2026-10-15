@@ -1,5 +1,7 @@
 # Deployment
 
+# Keep a single replica: A2A tasks are kept in memory, in the pod that
+# received them, so tasks/get may fail on another replica. See README.
 replicaCount: 1
 
 autoscaling:
@@ -42,17 +44,25 @@ extraEnv: []
 
 ## probe
 
+# Holds off liveness and readiness until gentleman has started. Startup waits
+# for every agent's MCP servers in turn (initTimeout, 30s each by default),
+# so allow periodSeconds x failureThreshold for all of them (here 150s).
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 5
+  failureThreshold: 30
+
 livenessProbe:
   httpGet:
     path: /health
     port: http
-  initialDelaySeconds: 5
 
 readinessProbe:
   httpGet:
     path: /ready
     port: http
-  initialDelaySeconds: 5
 
 ## resources
 
@@ -124,6 +134,16 @@ httpRoute:
   path: /
   pathType: PathPrefix
 
+  # Timeouts for the generated rule. AG-UI streams over SSE, and `request`
+  # covers the whole stream, so raise it for long-running agents. Defaults
+  # depend on the Gateway implementation. "0s" disables a timeout.
+  # Ignored when `rules` is set.
+  # timeouts:
+  #   request: 300s
+  #   backendRequest: 300s
+  timeouts: {}
+
+  # Replaces the generated rule entirely (templated).
   rules: []
 
 
@@ -137,28 +157,51 @@ serviceAccount:
 
 # agents
 
+# Each agent is a directory under agentsMountPath. The chart lays an emptyDir
+# there and mounts one ConfigMap per agent on top of it, at <agentsMountPath>/<name>.
 agentsMountPath: /app/agents
 
-agentsExistingConfigMap: ''
-
-# Your agents, keyed by file path. When set, defaultAgents is ignored.
+# Your agents, keyed by agent name. Each holds its files:
+# agent.yaml or a2a.yaml, and optionally mcp_config.json (with agent.yaml).
+#
+#   agents:
+#     concierge:
+#       agent.yaml:
+#         model: gentleman:echo
+#         routing:
+#           visibility: public
+#           delegates: [writer]
+#     writer:
+#       agent.yaml:
+#         model: gentleman:echo
 agents: {}
 
-# Shipped so that `helm install gentleman` works out of the box.
-# Used only when agents is empty. Set to null to mount no agents at all.
-defaultAgents:
-  example/agent.yaml:
-    model: gentleman:echo
-    description: A helpful assistant.
-    routing:
-      visibility: public
-      delegates: []
-    metadata:
-      version: 1.0.0
-    instructions: |
-      You are a helpful assistant.
+# Agents from ConfigMaps you manage, as `agent name: ConfigMap name`.
+# The ConfigMap's keys become the files in that agent's directory:
+#
+#   kubectl create configmap my-writer --from-file=agents/writer
+#
+#   existingAgents:
+#     writer: my-writer
+existingAgents: {}
 
-      - Answer the user's questions clearly and concisely.
-      - If you are unsure, say so instead of guessing.
-      - Use the available tools when they help.
+# Shipped so that `helm install gentleman` works out of the box.
+# Used only when agents and existingAgents are both empty.
+# Set to null to mount no agents at all.
+defaultAgents:
+  example:
+    agent.yaml:
+      model: gentleman:echo
+      description: A helpful assistant.
+      routing:
+        visibility: public
+        delegates: []
+      metadata:
+        version: 1.0.0
+      instructions: |
+        You are a helpful assistant.
+
+        - Answer the user's questions clearly and concisely.
+        - If you are unsure, say so instead of guessing.
+        - Use the available tools when they help.
 

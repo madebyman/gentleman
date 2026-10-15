@@ -2,8 +2,8 @@ apiVersion: v2
 name: gentleman
 description: Declarative AI agent server — MCP for tools, A2A for agents, AG-UI for humans
 type: application
-version: 0.1.1
-appVersion: "0.4.0"
+version: 0.2.0
+appVersion: "0.4.1"
 home: https://github.com/madebyman/gentleman
 icon: https://raw.githubusercontent.com/madebyman/gentleman/main/.github/assets/gentleman-icon.svg
 sources:
@@ -31,11 +31,21 @@ annotations:
       url: https://github.com/madebyman/gentleman/issues
   artifacthub.io/images: |
     - name: gentleman
-      image: ghcr.io/madebyman/gentleman:0.4.0
+      image: ghcr.io/madebyman/gentleman:0.4.1
       platforms:
         - linux/amd64
         - linux/arm64
   artifacthub.io/changes: |
+    - kind: changed
+      description: "agents is keyed by agent name, one ConfigMap per agent (breaking)"
+    - kind: changed
+      description: "agentsExistingConfigMap is replaced by existingAgents (breaking)"
     - kind: added
-      description: Sign the chart with cosign (keyless, GitHub Actions OIDC)
+      description: "mcp_config.json and a2a.yaml can be declared in agents"
+    - kind: added
+      description: "startupProbe, so slow MCP servers are not restarted during startup"
+    - kind: fixed
+      description: "readinessProbe uses /ready"
+    - kind: fixed
+      description: "appVersion 0.4.1: the image runs as uid/gid 1000, matching runAsUser, so stdio MCP servers can write $HOME"
 
