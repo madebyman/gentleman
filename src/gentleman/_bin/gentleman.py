@@ -5,18 +5,19 @@ import sys
 from pathlib import Path
 from string import Template
 
-from importlib.metadata import version
 from importlib.resources import files, as_file
 
 import uvicorn
 
-from .._version import __version__
-
-
-dist_name = 'gentleman-agents'
+from .._version import DIST_NAME, __version__
 
 
 def init(dest_dir, *args, **kwargs):
+
+    if __version__.endswith('+unknown'):
+        print('gentleman: cannot determine the installed version; '
+              f'run init from an installed {DIST_NAME}', file=sys.stderr)
+        sys.exit(1)
 
     # src
     src_dir_path = files('gentleman') / '_tmpl'
@@ -33,7 +34,7 @@ def init(dest_dir, *args, **kwargs):
 
     # context and overwrite files
     context = {'project_name': dest_dir_path.name,
-                'gentleman_version': version(dist_name)}
+                'gentleman_version': __version__}
 
     overwrite_target_files = ['pyproject.toml', 'README.md']
 
@@ -79,7 +80,7 @@ def chat(*args, **kwargs):
 
     except (ImportError):
         print('chat command requires extras: '
-              f'pip install "{dist_name}[chat]"', file=sys.stderr)
+              f'pip install "{DIST_NAME}[chat]"', file=sys.stderr)
 
         sys.exit(1)
 

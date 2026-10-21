@@ -1,6 +1,5 @@
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -165,7 +164,7 @@ class _Gentleman:
 
 
 def create_gentleman(
-        agents_dir=None,*, name=None, origin=None, prefix=''):
+        agents_dir=None, *, name=None, origin=None, prefix=''):
 
     return _Gentleman(
             agents_dir, name=name, origin=origin, prefix=prefix)

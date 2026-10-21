@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class AppSettings(BaseSettings):
 
@@ -13,6 +14,7 @@ class AppSettings(BaseSettings):
     agents_dir: Path = Path('agents')
     expose: frozenset[Literal['agui', 'a2a', 'mcp']] = frozenset(
             {'agui','a2a', 'mcp'})
+
 
 class RemoteSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='GENTLEMAN_REMOTE_')
@@ -43,3 +45,4 @@ class McpSettings(BaseSettings):
     @property
     def dns_rebinding_protection(self):
         return bool(self.allowed_hosts)
+

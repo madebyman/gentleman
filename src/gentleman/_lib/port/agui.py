@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
-from ..settings import RemoteSettings
 from ..core import hop
 
 

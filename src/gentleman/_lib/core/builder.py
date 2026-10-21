@@ -11,6 +11,7 @@ from ..ask import make_tool
 from ..specs import StdioServer
 from ..model import resolve_model
 
+
 _output_type = [str, DeferredToolRequests]
 _init_timeout = 30.0
 

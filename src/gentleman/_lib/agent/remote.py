@@ -22,8 +22,13 @@ from a2a.helpers import get_artifact_text, get_message_text, new_text_message
 from a2a.types import Role, SendMessageRequest, TaskState
 
 from ..core import hop
-from ..._errors import RemoteLoopError, RemoteEmptyError, RemoteTaskError
 
+from ..._errors import (
+    RemoteLoopError,
+    RemoteEmptyError,
+    RemoteOriginError,
+    RemoteTaskError,
+)
 
 _FAILED_STATES = (TaskState.TASK_STATE_FAILED,
                   TaskState.TASK_STATE_REJECTED,
@@ -47,6 +52,29 @@ async def _add_hop_header(request):
     request.headers[hop.HEADER] = str(hop.current_hop() + 1)
 
 
+def _make_add_headers(headers, url):
+
+    origin = (url.scheme, url.host, url.port)
+
+    async def add_headers(request):
+
+        if not headers:
+            return
+
+        if (request.url.scheme, request.url.host, request.url.port) == origin:
+            request.headers.update(headers)
+            return
+
+        raise RemoteOriginError(
+                f'gentleman: {request.url} is not the origin of url in a2a.yaml '
+                f'({url}); headers are sent only to that origin. '
+                'If the agent card advertises another URL, '
+                'set GENTLEMAN_APP_ORIGIN on the remote side; '
+                'if it redirects, set url to the final URL')
+
+    return add_headers
+
+
 async def _raise_for_status(response):
     if response.is_error:
         await response.aread()
@@ -67,6 +95,7 @@ class RemoteAgent(AbstractAgent):
         self._card = card
 
         self._base_url = str(spec.url)
+        self._headers = dict(spec.headers)
         self._timeout = spec.timeout
 
         self._stack, self._httpx, self._client = None, None, None
@@ -114,7 +143,9 @@ class RemoteAgent(AbstractAgent):
         timeout = httpx.Timeout(
                 connect=5.0, read=self._timeout, write=10.0, pool=5.0)
 
-        event_hooks = {'request': [_add_hop_header],
+        event_hooks = {'request': [_make_add_headers(self._headers,
+                                                     httpx.URL(self._base_url)),
+                                   _add_hop_header],
                        'response': [_raise_for_status]}
 
         self._httpx = await self._stack.enter_async_context(

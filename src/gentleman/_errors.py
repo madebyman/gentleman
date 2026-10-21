@@ -22,6 +22,10 @@ class RemoteEmptyError(Error):
     pass
 
 
+class RemoteOriginError(Error):
+    pass
+
+
 class RemoteTaskError(Error):
     pass
 

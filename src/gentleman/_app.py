@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ._gentleman import create_gentleman
 from ._version import __version__
-from ._errors import BuildError, LoadError, LifecycleError
+from ._errors import BuildError, LoadError
 
 from ._lib.port.health import create_health_router
 from ._lib.settings import CorsSettings

@@ -7,11 +7,12 @@ from a2a.helpers import (
     new_text_artifact_update_event,
 )
 
-from a2a.server.agent_execution import AgentExecutor
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
 from a2a.server.routes.jsonrpc_dispatcher import JsonRpcDispatcher
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.request_handlers.response_helpers import agent_card_to_dict
-from a2a.server.tasks import TaskUpdater, InMemoryTaskStore
+from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import TaskState
 
 from pydantic_ai.messages import (
@@ -25,9 +26,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from ..core import hop
-from ..settings import RemoteSettings
-
 from ..._errors import Error
+
 
 __all__ = ['a2a_path_prefix', 'create_a2a', 'create_a2a_router']
 
@@ -126,9 +126,13 @@ class _A2AAgentExecutor(AgentExecutor):
                                          state=TaskState.TASK_STATE_COMPLETED,
                                          text='done'))
 
-    async def cancel(
-            self, context: RequestContext, event_quere: EventQueue):
-        raise NotImplementedError
+    async def cancel(self, context: RequestContext, event_queue: EventQueue):
+
+        await event_queue.enqueue_event(
+            new_text_status_update_event(task_id=context.task_id,
+                                         context_id=context.context_id,
+                                         state=TaskState.TASK_STATE_CANCELED,
+                                         text='canceled'))
 
 
 class _A2A:
