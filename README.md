@@ -16,6 +16,25 @@
   <b>Gentleman</b> <i>Declarative AI agent framework</i> — MCP for tools, A2A for agents, AG-UI for humans.
 </p>
 
+Gentleman is a multi-agent server built on Pydantic AI and FastAPI. Each agent
+is a directory with a YAML file. Put them under `agents/`, and a single process
+serves them all over three protocols:
+
+- **AG-UI** — for humans, from a chat UI.
+- **A2A** — for other agents, local or remote.
+- **MCP** — for MCP clients, as tools.
+
+Agents use tools from MCP servers and delegate to other agents. No glue code.
+
+```
+agents/
+  concierge/
+    agent.yaml
+    mcp_config.json
+  writer/
+    agent.yaml
+```
+
 ## Requirements
 
 - Python 3.14+
@@ -55,6 +74,31 @@ With pip:
 pip install gentleman-agents
 ```
 
+## Model providers
+
+Model providers are extras. Install the ones you use:
+
+```sh
+uv add "gentleman-agents[openai]"
+```
+
+| Extra | Model prefix | Credentials |
+|---|---|---|
+| `openai` | `openai:`, `ollama:` and other OpenAI-compatible APIs | `OPENAI_API_KEY` |
+| `anthropic` | `anthropic:` | `ANTHROPIC_API_KEY` |
+| `google` | `google:`, `google-cloud:` | `GOOGLE_API_KEY` |
+| `bedrock` | `bedrock:` | AWS credentials |
+| `xai` | `xai:` | `XAI_API_KEY` |
+
+`providers` installs all five. The built-in `gentleman:echo` model needs none.
+Projects from `gentleman init` start with `openai`.
+
+Other providers supported by Pydantic AI can be added directly:
+
+```sh
+uv add "pydantic-ai-slim[groq]"
+```
+
 ## Interactive chat
 
 The `gentleman chat` subcommand needs the `chat` extra:
@@ -76,10 +120,12 @@ To add it to a project instead:
 uv add "gentleman-agents[chat]"
 ```
 
+Extras can be combined, e.g. `gentleman-agents[chat,openai]`.
+
 ## Docker
 
 Images are published to the GitHub Container Registry for `linux/amd64` and
-`linux/arm64`:
+`linux/arm64`, with all five model providers:
 
 ```sh
 docker pull ghcr.io/madebyman/gentleman:edge
@@ -88,6 +134,25 @@ docker pull ghcr.io/madebyman/gentleman:edge
 `edge` tracks the latest build from `main`. See the
 [packages page](https://github.com/madebyman/gentleman/pkgs/container/gentleman)
 for available tags.
+
+## Helm
+
+```sh
+helm install gentleman oci://ghcr.io/madebyman/charts/gentleman
+kubectl port-forward svc/gentleman 8000:80
+```
+
+Then the interfaces are available at:
+
+```
+AG-UI : http://localhost:8000/agui
+A2A   : http://localhost:8000/a2a
+MCP   : http://localhost:8000/mcp
+```
+
+With no values, the chart ships an example agent using `gentleman:echo`, so it
+runs without any credentials. For agents, secrets and ingress, see the chart on
+[Artifact Hub](https://artifacthub.io/packages/helm/gentleman/gentleman).
 
 ## Status
 

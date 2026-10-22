@@ -9,20 +9,37 @@ services:
     command: ["--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ./agents:/app/agents
+    # Ollama on the host, on Linux: host.docker.internal is not defined there
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
     environment:
       # --- Gentleman ---
       GENTLEMAN_APP_ORIGIN:
       GENTLEMAN_CORS_ALLOW_ORIGINS:
 
-      # --- Anthropic ---
-      # ANTHROPIC_API_KEY:
-
       # --- OpenAI ---
       # OPENAI_API_KEY:
 
-      # --- Amazon Bedrock ---
+      # --- Ollama (uses the openai extra) ---
+      # Inside the container, localhost is the container itself.
+      # To reach Ollama on the host, use host.docker.internal:
+      # OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+
+      # --- Anthropic: requires gentleman-agents[anthropic] ---
+      # ANTHROPIC_API_KEY:
+
+      # --- Google (Gemini API): requires gentleman-agents[google] ---
+      # GOOGLE_API_KEY:
+
+      # --- Google Cloud (Vertex AI): requires gentleman-agents[google] ---
+      # GOOGLE_CLOUD_PROJECT:
+      # GOOGLE_CLOUD_LOCATION:
+      # GOOGLE_APPLICATION_CREDENTIALS:
+
+      # --- Amazon Bedrock: requires gentleman-agents[bedrock] ---
       # AWS_DEFAULT_REGION:
       # AWS_BEARER_TOKEN_BEDROCK:
 
-      # --- Ollama ---
-      # OLLAMA_BASE_URL:
+      # --- xAI: requires gentleman-agents[xai] ---
+      # XAI_API_KEY:
+

@@ -17,6 +17,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-editable
 
+# node: update npm here, so the bundled npm never reaches the final image
+# as a dead layer underneath the updated one
+FROM node:24-trixie-slim AS node
+
+RUN rm -rf /usr/local/lib/node_modules/corepack \
+ && npm install -g npm@latest \
+ && npm cache clean --force
+
 # deploy
 FROM python:3.14-slim-trixie
 WORKDIR /app
