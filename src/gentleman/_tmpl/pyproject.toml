@@ -4,8 +4,8 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "gentleman-agents==${gentleman_version}",
+    # Add providers as needed, e.g. gentleman-agents[openai,anthropic]
+    "gentleman-agents[openai]==${gentleman_version}",
 ]
-
 [tool.uv]
 package = false

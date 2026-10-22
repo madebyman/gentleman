@@ -1,7 +1,7 @@
 # Gentleman user image — customize and build your own
 
 # build
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 
 WORKDIR /app
 
@@ -17,8 +17,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-editable
 
+# node: update npm here, so the bundled npm never reaches the final image
+# as a dead layer underneath the updated one
+FROM node:24-trixie-slim AS node
+
+RUN rm -rf /usr/local/lib/node_modules/corepack \
+ && npm install -g npm@latest \
+ && npm cache clean --force
+
 # deploy
-FROM python:3.14-slim-bookworm
+FROM python:3.14-slim-trixie
 WORKDIR /app
 
 # os: pick up security updates published after the base image was built
@@ -35,8 +43,9 @@ COPY --from=builder /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 RUN uvx --version
 
 # node: npx is needed for stdio MCP servers; corepack is not
-COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:24-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node:24-trixie-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24-trixie-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+
 RUN rm -rf /usr/local/lib/node_modules/corepack \
  && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \

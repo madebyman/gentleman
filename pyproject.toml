@@ -28,7 +28,7 @@ dependencies = [
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
     "mcp>=2,<3",
-    "pydantic-ai-slim[ag-ui,anthropic,bedrock,mcp,openai,spec]>=2.53.0,<3",
+    "pydantic-ai-slim[ag-ui,mcp,spec]>=2.53.0,<3",
     "pyyaml>=6.0.3",
     "uvicorn>=0.51.0",
 ]
@@ -43,11 +43,28 @@ gentleman = "gentleman._bin:main"
 gentleman-agents = "gentleman._bin:main"
 
 [project.optional-dependencies]
+openai = [
+    "pydantic-ai-slim[openai]>=2.53.0,<3",
+]
+anthropic = [
+    "pydantic-ai-slim[anthropic]>=2.53.0,<3",
+]
+google = [
+    "pydantic-ai-slim[google]>=2.53.0,<3"
+]
+bedrock = [
+    "pydantic-ai-slim[bedrock]>=2.53.0,<3",
+]
+xai = [
+    "pydantic-ai-slim[xai]>=2.53.0,<3"
+]
+
 chat = [
     "prompt-toolkit>=3.0.52",
     "rich>=15.0.0",
 ]
-all = ["gentleman-agents[chat]"]
+providers = ["gentleman-agents[openai,anthropic,google,bedrock,xai]"]
+all = ["gentleman-agents[providers,chat]"]
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]

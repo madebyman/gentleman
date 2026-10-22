@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="100%" height="100%" viewBox="0 0 1920 621" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+<svg width="100%" height="100%" viewBox="0 0 1920 751" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
     <style>
         svg { fill: #000000; }
         @media (prefers-color-scheme: dark) {
             svg { fill: #FFFFFF; }
         }
     </style>
-    <g transform="matrix(1,0,0,1,-8184.937008,-3646.192913)">
+    <g transform="matrix(1,0,0,1,-8184.937008,-3581.192913)">
         <g>
             <g transform="matrix(5.606948,0,0,5.606948,3993.077344,-3607.614595)">
                 <path d="M858.009,1342.406L873.585,1342.406L873.585,1343.651C873.585,1346.483 873.251,1348.989 872.584,1351.17C871.933,1353.189 870.834,1355.077 869.288,1356.834C865.789,1360.773 861.337,1362.743 855.934,1362.743C850.66,1362.743 846.144,1360.838 842.384,1357.03C838.624,1353.205 836.744,1348.615 836.744,1343.26C836.744,1337.791 838.657,1333.153 842.481,1329.344C846.306,1325.519 850.961,1323.607 856.446,1323.607C859.392,1323.607 862.143,1324.209 864.698,1325.414C867.14,1326.618 869.54,1328.571 871.9,1331.273L867.848,1335.155C864.755,1331.037 860.987,1328.978 856.544,1328.978C852.556,1328.978 849.212,1330.353 846.51,1333.104C843.808,1335.806 842.457,1339.191 842.457,1343.26C842.457,1347.459 843.963,1350.918 846.974,1353.636C849.789,1356.159 852.841,1357.42 856.129,1357.42C858.928,1357.42 861.443,1356.476 863.673,1354.588C865.903,1352.684 867.148,1350.405 867.408,1347.752L858.009,1347.752L858.009,1342.406Z" style="fill-rule:nonzero;"/>
