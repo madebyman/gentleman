@@ -12,13 +12,13 @@ ENV UV_COMPILE_BYTECODE=1 \
 COPY pyproject.toml uv.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-dev --extra bedrock
+    uv sync --locked --no-install-project --no-dev --extra providers
 
 COPY README.md LICENSE ./
 COPY src/ ./src/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable --extra bedrock
+    uv sync --locked --no-dev --no-editable --extra providers
 
 # node: update npm here, so the bundled npm never reaches the final image
 # as a dead layer underneath the updated one

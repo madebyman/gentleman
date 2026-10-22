@@ -10,6 +10,10 @@
   <a href="https://github.com/madebyman/gentleman/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/gentleman-agents?labelColor=222&color=fff" alt="License"></a>
 </p>
 
+<p align="center">
+  EN | <a href="https://github.com/madebyman/gentleman/blob/main/README.ja.md">JA</a>
+</p>
+
 <hr>
 
 <p align="center">
@@ -41,11 +45,28 @@ agents/
 
 ## Quick start
 
-Run without installing, using [uv](https://docs.astral.sh/uv/):
+Scaffold a project with [uv](https://docs.astral.sh/uv/) and run it:
 
 ```sh
 uvx --from gentleman-agents gentleman init my-gentleman
+cd my-gentleman
+uv sync
+# edit agents/example/agent.yaml
+uv run gentleman dev
 ```
+
+`gentleman dev` serves the agents at `http://127.0.0.1:8000`. The interfaces are
+available at:
+
+```
+AG-UI : http://localhost:8000/agui
+A2A   : http://localhost:8000/a2a
+MCP   : http://localhost:8000/mcp
+```
+
+The example agent uses the built-in `gentleman:echo` model, so it runs without
+any credentials. To use a model provider, copy `.env.sample` to `.env`, set its
+API key, and run `uv run --env-file .env gentleman dev`.
 
 `gentleman init` scaffolds a project into the given directory, creating it if it
 does not exist. Without an argument, it scaffolds into the current directory.
@@ -101,6 +122,9 @@ uv add "pydantic-ai-slim[groq]"
 
 ## Interactive chat
 
+`gentleman chat` is a small client for trying out your agents from a terminal.
+It is meant for development and testing, not as a chat interface for users.
+
 The `gentleman chat` subcommand needs the `chat` extra:
 
 ```sh
@@ -137,18 +161,15 @@ for available tags.
 
 ## Helm
 
+The Helm chart deploys gentleman on Kubernetes. Agents are declared as YAML in
+the chart values and mounted into the pod, one directory per agent.
+
 ```sh
 helm install gentleman oci://ghcr.io/madebyman/charts/gentleman
 kubectl port-forward svc/gentleman 8000:80
 ```
 
-Then the interfaces are available at:
-
-```
-AG-UI : http://localhost:8000/agui
-A2A   : http://localhost:8000/a2a
-MCP   : http://localhost:8000/mcp
-```
+The interfaces are then available at the same URLs as in [Quick start](#quick-start).
 
 With no values, the chart ships an example agent using `gentleman:echo`, so it
 runs without any credentials. For agents, secrets and ingress, see the chart on
