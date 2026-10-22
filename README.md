@@ -20,15 +20,16 @@
   <b>Gentleman</b> <i>Declarative AI agent framework</i> — MCP for tools, A2A for agents, AG-UI for humans.
 </p>
 
-Gentleman is a multi-agent server built on Pydantic AI and FastAPI. Each agent
-is a directory with a YAML file. Put them under `agents/`, and a single process
-serves them all over three protocols:
+Gentleman is a declarative multi-agent AI framework.
+Agents are declared in configuration files, not code. Put one directory per agent
+under `agents/`, and a single process serves them all over three protocols:
 
 - **AG-UI** — for humans, from a chat UI.
 - **A2A** — for other agents, local or remote.
 - **MCP** — for MCP clients, as tools.
 
-Agents use tools from MCP servers and delegate to other agents. No glue code.
+Using tools from MCP servers and delegating to other agents both take nothing but
+configuration. No glue code.
 
 ```
 agents/
