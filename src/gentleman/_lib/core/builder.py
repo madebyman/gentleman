@@ -5,15 +5,41 @@ from fastmcp.client.transports import StdioTransport
 from pydantic_ai import Agent, DeferredToolRequests
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.toolsets import PrefixedToolset
+from pydantic_ai.exceptions import UserError
 
 from ..agent import LocalAgent, RemoteAgent
 from ..ask import make_tool
 from ..specs import StdioServer
 from ..model import resolve_model
 
+from ..._version import DIST_NAME
+from ..._errors import BuildError
+
 
 _output_type = [str, DeferredToolRequests]
 _init_timeout = 30.0
+
+_provider_extras = {
+    'openai': [
+        'openai', 'openai-chat', 'openai-responses',
+        # pydantic ai extras whose only sdk is openai
+       'openrouter', 'cerebras', 'zai', 'snowflake', 'crusoe',
+        # openai-compatible apis
+        'ollama', 'alibaba', 'fireworks', 'heroku', 'nebius', 'ovhcloud',
+        'sambanova', 'together', 'vercel', 'vllm',
+        # needs botocore as well
+        'bedrock-mantle',
+    ],
+    'anthropic': ['anthropic'],
+    'google': ['google', 'google-cloud'],
+    'bedrock': ['bedrock', 'bedrock-mantle'],
+    'xai': ['xai'],
+}
+
+
+def _extras_for(model):
+    prefix, sep, _ = (model or '').partition(':')
+    return ''.join([k for k, v in _provider_extras.items() if sep and prefix in v])
 
 
 def _build_stdio_toolset(entry, *, init_timeout):
@@ -101,12 +127,27 @@ def build_agents(specs, *, base_url):
         toolsets = [_build_toolset(k, v)
                     for k, v in local_spec.mcp_servers.items()]
 
-        agent = Agent.from_spec(local_spec.spec,
-                                name=name,
-                                model=resolve_model(local_spec.spec.model),
-                                tools=tools,
-                                toolsets=toolsets,
-                                output_type=_output_type)
+        try:
+            agent = Agent.from_spec(local_spec.spec,
+                                    name=name,
+                                    model=resolve_model(local_spec.spec.model),
+                                    tools=tools,
+                                    toolsets=toolsets,
+                                    output_type=_output_type)
+
+        except (ImportError) as err:
+            header = (f'{name}/agent.yaml: '
+                     'a required package is not installed')
+
+            message = (f'{header}; install "{DIST_NAME}[{extras}]" '
+                       f'for model "{local_spec.spec.model}"'
+                       if (extras := _extras_for(local_spec.spec.model)) else
+                       f'{header}: {err}')
+
+            raise BuildError(message)
+
+        except (UserError) as err:
+            raise BuildError(f'{name}/agent.yaml: {err}') from err
 
         agent_card = _build_agent_card(name,
                                        description=local_spec.description,

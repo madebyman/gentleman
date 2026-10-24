@@ -22,7 +22,7 @@ def create_app():
         gentleman = create_gentleman(prefix='')
 
     except (LoadError, BuildError) as err:
-        print(err, file=sys.stderr)
+        logger.error('gentleman: %s', err)
         sys.exit(1)
 
     if gentleman.is_bundled_example:
